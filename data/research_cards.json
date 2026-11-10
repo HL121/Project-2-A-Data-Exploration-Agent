@@ -1,0 +1,94 @@
+{
+  "blue-cash-preferred": {
+    "name": "Blue Cash Preferred",
+    "catalog": {
+      "url": "https://67.credit/card/blue-cash-preferred",
+      "as_of": "2026-05-12",
+      "values": {
+        "grocery_rate_pct": 6, "grocery_cap_usd": 6000, "grocery_over_cap_rate_pct": 1,
+        "gas_rate_pct": 3, "transit_rate_pct": 3, "streaming_rate_pct": 6, "other_rate_pct": 1
+      }
+    },
+    "catalog_offer": {
+      "url": "https://67.credit/card/blue-cash-preferred",
+      "as_of": "2026-11-10",
+      "locator": "Welcome Bonus (retrieval date)",
+      "values": {"catalog_welcome_offer": {"amount_usd": 350, "required_spend_usd": 3000, "months": 6}}
+    },
+    "agreement": {
+      "url": "https://www.americanexpress.com/content/dam/amex/en-us/company/legal/cardmember-agreements/public-site-adhoc-2025-10-08/cps-lending/blue-cash-preferred-10-08-2025.pdf",
+      "as_of": "2025-10-08",
+      "values": {"annual_fee_usd": 95, "purchase_apr_prime_margin_min_pct": 12.74, "purchase_apr_prime_margin_max_pct": 21.74, "foreign_transaction_fee_pct": 2.7}
+    },
+    "product": {
+      "url": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-preferred/",
+      "as_of": "2026-11-10",
+      "values": {
+        "annual_fee_usd": 95, "advertised_first_year_fee_usd": 0,
+        "bonus_categories": ["grocery", "gas", "transit", "streaming"],
+        "capped_categories": ["grocery"],
+        "grocery_rate_pct": 6, "grocery_cap_usd": 6000, "grocery_over_cap_rate_pct": 1,
+        "gas_rate_pct": 3, "transit_rate_pct": 3, "streaming_rate_pct": 6, "other_rate_pct": 1
+      }
+    },
+    "terms": {
+      "url": "https://www.americanexpress.com/content/dam/amex/en-us/company/legal/cardmember-agreements/public-site-adhoc-2025-10-08/cps-lending/blue-cash-preferred-10-08-2025.pdf",
+      "as_of": "2025-10-08",
+      "values": {
+        "grocery_cap_period": "calendar_year",
+        "grocery_exclusions": ["superstores", "convenience stores", "warehouse clubs", "meal-kit delivery services"],
+        "gas_exclusions": ["superstores", "supermarkets", "warehouse clubs"],
+        "transit_exclusions": ["airfare", "car rental", "cruises"],
+        "streaming_eligibility": "Selected U.S. providers. Bundled or third-party billing may disqualify the charge.",
+        "merchant_coding_rule": "Additional cash back depends on the merchant code and transaction details available to the issuer."
+      }
+    }
+  },
+  "blue-cash-everyday": {
+    "name": "Blue Cash Everyday",
+    "catalog": {
+      "url": "https://67.credit/card/blue-cash-everyday",
+      "as_of": "2026-05-12",
+      "values": {
+        "grocery_rate_pct": 3, "grocery_cap_usd": 6000, "grocery_over_cap_rate_pct": 1,
+        "gas_rate_pct": 3, "online_retail_rate_pct": 3, "other_rate_pct": 1
+      }
+    },
+    "catalog_offer": {
+      "url": "https://67.credit/card/blue-cash-everyday",
+      "as_of": "2026-11-10",
+      "locator": "Welcome Bonus (retrieval date)",
+      "values": {"catalog_welcome_offer": {"amount_usd": 200, "required_spend_usd": 2000, "months": 6}}
+    },
+    "agreement": {
+      "url": "https://www.americanexpress.com/content/dam/amex/en-us/company/legal/cardmember-agreements/public-site-2026-q1-pdf-cmas/cps-lending/blue-cash-everyday-03-31-2026.pdf",
+      "as_of": "2026-03-31",
+      "values": {"annual_fee_usd": 0, "purchase_apr_prime_margin_min_pct": 12.74, "purchase_apr_prime_margin_max_pct": 21.74, "foreign_transaction_fee_pct": 2.7}
+    },
+    "product": {
+      "url": "https://www.americanexpress.com/us/credit-cards/card/blue-cash-everyday/",
+      "as_of": "2026-11-10",
+      "values": {
+        "annual_fee_usd": 0, "advertised_first_year_fee_usd": 0,
+        "bonus_categories": ["grocery", "gas", "online_retail"],
+        "capped_categories": ["grocery", "gas", "online_retail"],
+        "grocery_rate_pct": 3, "grocery_cap_usd": 6000, "grocery_over_cap_rate_pct": 1,
+        "gas_rate_pct": 3, "gas_cap_usd": 6000, "gas_over_cap_rate_pct": 1,
+        "online_retail_rate_pct": 3, "online_retail_cap_usd": 6000, "online_retail_over_cap_rate_pct": 1,
+        "other_rate_pct": 1
+      }
+    },
+    "terms": {
+      "url": "https://www.americanexpress.com/content/dam/amex/en-us/company/legal/cardmember-agreements/public-site-2026-q1-pdf-cmas/cps-lending/blue-cash-everyday-03-31-2026.pdf",
+      "as_of": "2026-03-31",
+      "values": {
+        "grocery_cap_period": "calendar_year", "gas_cap_period": "calendar_year",
+        "online_retail_cap_period": "calendar_year",
+        "grocery_exclusions": ["superstores", "convenience stores", "warehouse clubs", "meal-kit delivery services"],
+        "gas_exclusions": ["superstores", "supermarkets", "warehouse clubs"],
+        "online_retail_exclusions": ["restaurants", "supermarkets", "gas stations", "auto dealers", "travel", "entertainment", "other services"],
+        "merchant_coding_rule": "Additional cash back depends on the merchant code and transaction details available to the issuer."
+      }
+    }
+  }
+}
