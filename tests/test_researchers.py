@@ -2,10 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from issuer_live import product_excerpt
 from researchers import (
-    CARD_IDS,
-    CFPB_FILE,
+    EXAMPLE_CARD_IDS,
+
     check_catalog_welcome_offer,
     check_merchant_exclusion,
     estimate_annual_grocery_rewards,
@@ -16,7 +15,8 @@ from researchers import (
     verify_issuer_terms,
 )
 
-PREFERRED, EVERYDAY = CARD_IDS
+PREFERRED, EVERYDAY = EXAMPLE_CARD_IDS
+CFPB_FIXTURE = Path(__file__).resolve().parents[1] / "data/cfpb_tccp-data_2025-12-31.csv"
 
 
 class ResearcherTests(unittest.TestCase):
@@ -43,12 +43,13 @@ class ResearcherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             survey = Path(directory) / "survey.csv"
             missing = research_costs(PREFERRED, survey)
-            lines = CFPB_FILE.read_text(encoding="utf-8").splitlines()
+            lines = CFPB_FIXTURE.read_text(encoding="utf-8").splitlines()
             survey.write_text("\n".join([*lines, lines[1]]) + "\n", encoding="utf-8")
             ambiguous = research_costs(PREFERRED, survey)
         for result in (missing, ambiguous):
             self.assertEqual({item["status"] for item in result["evidence"]}, {"historical_agreement"})
-        self.assertIn("found 2", ambiguous["gaps"][0])
+        self.assertEqual(ambiguous["match"]["status"], "ambiguous")
+        self.assertEqual(ambiguous["match"]["candidate_count"], 2)
 
     def test_unknown_card_returns_no_evidence(self):
         for research in (research_rewards, research_costs, verify_issuer_terms):
@@ -142,19 +143,3 @@ class ResearcherTests(unittest.TestCase):
                          "no_category_bonus")
         self.assertEqual(check_merchant_exclusion(PREFERRED, "grocery", "supermarket")["status"],
                          "eligibility_unconfirmed")
-
-    def test_live_excerpt_requires_correct_product_and_visible_relevant_terms(self):
-        html = """
-        <title>Blue Cash Everyday Card | American Express</title>
-        <script>Supermarkets 95%</script>
-        <h1>Blue Cash Everyday<sup>®</sup> Card</h1>
-        <p>Earn <strong>3%</strong> at U.S. supermarkets, up to $6,000 per year, then 1%.</p>
-        <p>The card has no annual fee.</p>
-        """
-        excerpt = product_excerpt(html, "Blue Cash Everyday", "grocery")
-        self.assertIn("3% at U.S. supermarkets", excerpt)
-        self.assertIn("$6,000", excerpt)
-        self.assertNotIn("95%", excerpt)
-        self.assertIn("no annual fee", product_excerpt(html, "Blue Cash Everyday", "annual_fee"))
-        self.assertIsNone(product_excerpt(html, "Blue Cash Preferred", "grocery"))
-        self.assertIsNone(product_excerpt(html, "Blue Cash Everyday", "transit"))

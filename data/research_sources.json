@@ -1,0 +1,31 @@
+{
+  "prepared_at": "2026-11-10T23:11:04+00:00",
+  "catalog_count": 201,
+  "cfpb_count": 663,
+  "catalog_metadata": {
+    "schemaVersion": "1",
+    "generated": "2026-07-29",
+    "cardCount": 201,
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "citeAs": "67.CREDIT card dataset (67.credit/data), CC BY 4.0",
+    "docs": "https://67.credit/data",
+    "endpoints": {
+      "all": "https://67.credit/api/v1/cards.json",
+      "csv": "https://67.credit/api/v1/cards.csv",
+      "one": "https://67.credit/api/v1/cards/{slug}.json"
+    }
+  },
+  "sources": [
+    {
+      "file": "cards_67credit.json",
+      "url": "https://67.credit/api/v1/cards.json",
+      "sha256": "d05ea2b40d58f4fb2bc7543886a2820bec5b8e50d7adbb84a23c3af6e77c778b"
+    },
+    {
+      "file": "cfpb_tccp_2025-12-31.xlsx",
+      "url": "https://files.consumerfinance.gov/f/documents/cfpb_tccp-data_2025-12-31.xlsx",
+      "sha256": "44a418a8e520f58150f818890c8e05d4ef02497e6808ad9e274e691d6255db1a"
+    }
+  ],
+  "cfpb_percentage_units": "Percent, converted from workbook fractional rates."
+}
