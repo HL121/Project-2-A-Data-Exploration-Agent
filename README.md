@@ -48,9 +48,8 @@ Download dates and file hashes are recorded in `data/research_sources.json`.
 
 **Agent vs. baseline:**
 
-<table>
-<tr><th width="50%">CardWise agent</th><th width="50%">Baseline (no tools, no system prompt)</th></tr>
-<tr><td valign="top">
+<details>
+<summary><h3>CardWise agent answer (click to expand)</h3></summary>
 
 For your spending habits, the **American Express Blue Cash Preferred® Card** is the better option. Even after accounting for its $95 annual fee, the card yields **$301 in net cash back** annually on groceries alone, which is $85 more than you would earn with the no-fee Blue Cash Everyday® Card.
 
@@ -96,7 +95,10 @@ Here is the step-by-step math for your annual grocery spending of $9,600:
 * **Other Earning Categories:** If you occasionally spend outside of groceries, the **Blue Cash Everyday** also earns 3% cash back (up to $6,000/year, then 1%) on U.S. online retail and U.S. gas stations ([Source](https://www.americanexpress.com/us/credit-cards/card/blue-cash-everyday/), 2026-11-11). The **Blue Cash Preferred** earns 6% on select streaming services and 3% on U.S. gas stations and transit ([Source](https://67.credit/card/blue-cash-preferred), 2026-05-12).
 * **Payment Habits:** Since you pay your bill in full every month, you can easily avoid interest charges by taking advantage of the **25-day purchase grace period** offered on both cards ([Source](https://files.consumerfinance.gov/f/documents/cfpb_tccp-data_2025-12-31.xlsx), 2025-12-31). For historical context, standard purchase APRs for both cards range from a minimum of 18.24% to a maximum of 29.24% depending on your credit profile ([Source](https://files.consumerfinance.gov/f/documents/cfpb_tccp-data_2025-12-31.xlsx), 2025-12-31).
 
-</td><td valign="top">
+</details>
+
+<details>
+<summary><h3>Baseline answer, no tools and no system prompt (click to expand)</h3></summary>
 
 Based on your monthly grocery spend of $800 ($9,600 annually) and your willingness to pay a $95 annual fee, **the Blue Cash Preferred (BCP) is the clear winner**, even with its $6,000 annual cap on the highest cash-back tier. 
 
@@ -163,8 +165,7 @@ Buy the **Amex Blue Cash Preferred**.
 
 Even with the $95 annual fee and the $6,000 grocery cap, your $800/month grocery spend makes the BCP **$85 more profitable** than the BCE. If you also use the BCP for streaming (6%), transit (3%), or use the $84 Disney Bundle credit, the card pays for its annual fee several times over.
 
-</td></tr>
-</table>
+</details>
 
 **Comment:** Both answers reach the same conclusion and figures, since these are two of the best-known cash back cards. The difference is that every rate, cap and fee in the agent's answer links to a dated source the user can check, while the baseline gives no sources, including for details such as statement credits that may be out of date.
 
@@ -181,9 +182,8 @@ Even with the $95 annual fee and the $6,000 grocery cap, your $800/month grocery
 
 **Agent vs. baseline:**
 
-<table>
-<tr><th width="50%">CardWise agent</th><th width="50%">Baseline (no tools, no system prompt)</th></tr>
-<tr><td valign="top">
+<details>
+<summary><h3>CardWise agent answer (click to expand)</h3></summary>
 
 To pay off a $5,000 balance over 18 months, you can compare the current official terms (as of November 2026) for the **BankAmericard® Credit Card** and the **PenFed Gold Visa® Card**. 
 
@@ -220,7 +220,10 @@ While the BankAmericard offers a longer promotional window that fully covers you
 * **If you want complete interest-free peace of mind:** The **BankAmericard** covers your entire 18-month timeline with its 21-billing-cycle promo period ([source](https://www.bankofamerica.com/credit-cards/products/bankamericard-credit-card/)). However, you cannot use this card to transfer a balance from an existing Bank of America account ([source](https://www.bankofamerica.com/credit-cards/products/bankamericard-credit-card/)).
 * **If you want the lowest overall cost:** The **PenFed Gold Visa** saves you $100 upfront on the transfer fee ($150 vs. $250) ([source](https://www.penfed.org/credit-cards/gold-visa)). Even though you will pay interest during the last 3 months, your total out-of-pocket cost is still estimated to be about $74 cheaper than the BankAmericard, provided you pay down the balance consistently.
 
-</td><td valign="top">
+</details>
+
+<details>
+<summary><h3>Baseline answer, no tools and no system prompt (click to expand)</h3></summary>
 
 To pay off a $5,000 balance over 18 months, comparing the **BankAmericard® credit card** and the **PenFed Gold Visa® Card** is a smart move. Because you have a strict 18-month timeline, the length of the 0% introductory APR period is the most critical factor. 
 
@@ -273,8 +276,7 @@ Because the 0% intro APR only lasts for 15 months, you have two choices under th
 
 *Note: To qualify for the introductory rates on either card, you must initiate the balance transfer within the timeframe specified in your cardholder agreement (usually 60 days from account opening).*
 
-</td></tr>
-</table>
+</details>
 
 **Comment:** Here the answers disagree. The baseline relies on an outdated 3% BankAmericard transfer fee and recommends the BankAmericard. The agent finds the current 5% fee on the issuer's page, notes how it changed from the 2025 CFPB survey, and correctly identifies the PenFed Gold Visa as the cheaper option.
 
@@ -292,9 +294,8 @@ Because the 0% intro APR only lasts for 15 months, you have two choices under th
 
 **Agent vs. baseline:**
 
-<table>
-<tr><th width="50%">CardWise agent</th><th width="50%">Baseline (no tools, no system prompt)</th></tr>
-<tr><td valign="top">
+<details>
+<summary><h3>CardWise agent answer (click to expand)</h3></summary>
 
 While your coworker’s recommendation of the **U.S. Bank Altitude® Go Visa Signature®** is strong, it may not be the clear-cut winner for you over the long run. 
 
@@ -374,7 +375,10 @@ If you want to maximize your value in the first year, welcome offers can act as 
 * **Wells Fargo Autograph:** [Catalog Terms](https://67.credit/card/wf-autograph) (2025/2026), [Official Wells Fargo Claim Page](https://creditcards.wellsfargo.com/autograph-visa-credit-card/) (2026), and [CFPB Survey Data](https://files.consumerfinance.gov/f/documents/cfpb_tccp-data_2025-12-31.xlsx) (2025).
 * **Wells Fargo Active Cash:** [Catalog Terms](https://67.credit/card/wf-active-cash) (2025/2026) and [CFPB Survey Data](https://files.consumerfinance.gov/f/documents/cfpb_tccp-data_2025-12-31.xlsx) (2025).
 
-</td><td valign="top">
+</details>
+
+<details>
+<summary><h3>Baseline answer, no tools and no system prompt (click to expand)</h3></summary>
 
 Your coworker gave you excellent advice. For your specific spending habits—heavy dining, virtually no annual fee preference, and paying off your balance monthly—the **U.S. Bank Altitude® Go Visa Signature® Card** is arguably the best card on the market.
 
@@ -430,8 +434,7 @@ Unless you plan to save up points for international flights, **your coworker is 
 
 For a line cook spending $1,000/month on restaurants and takeout who wants a simple, free cash-back setup, the **U.S. Bank Altitude Go is the undisputed king.** Apply for it, use it exclusively for your dining, and enjoy your free $480+ every year.
 
-</td></tr>
-</table>
+</details>
 
 **Comment:** This is where the answers differ most. The baseline treats the 4% dining rate as unlimited, values the card at $480 a year and calls it the clear winner. The agent applies the $2,000 quarterly cap, finds the card earns about $360 on dining and is roughly tied with uncapped 3% cards, and shows how more dining would make an uncapped card the better choice.
 
