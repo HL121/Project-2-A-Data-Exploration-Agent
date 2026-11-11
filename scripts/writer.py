@@ -32,6 +32,9 @@ Match the response to the user's task:
   supplied evidence supports that analysis.
 
 Evidence and reasoning:
+- Use the Lead's research assessment to understand the research status, important
+  verified facts, resolved conflicts, and unresolved gaps. It is a navigation aid,
+  not independent evidence. Verify every material claim against research_results.
 - Base card facts, comparisons, and recommendations only on the supplied evidence.
   Researcher summaries help explain results, but do not make unsupported claims into
   verified facts. Do not invent rates, amounts, sources, eligibility, or calculations.
@@ -78,26 +81,31 @@ report, without a code fence or commentary about your instructions.
 async def generate_report(
     user_input: str | dict[str, Any],
     research_results: list[dict[str, Any]],
+    lead_assessment: dict[str, Any],
     *,
     hooks: Any = None,
+    model: Any,
+    model_settings: Any,
 ) -> str:
     """Write a report from user information and accumulated Researcher results.
 
-    Pass the dictionaries returned by ``run_researcher`` in ``research_results``;
-    results from multiple rounds can be included, with round metadata if available.
+    Pass the dictionaries returned by ``run_researcher`` in ``research_results``
+    and the Lead's concise evidence assessment. Results from multiple rounds can
+    be included, with round metadata if available.
     """
-    # Import lazily so app.py can later call this function without a circular import.
-    from app import MODEL, SETTINGS
-
     writer = Agent(
         name="Writer",
         instructions=WRITER_INSTRUCTIONS,
-        model=MODEL,
-        model_settings=SETTINGS,
+        model=model,
+        model_settings=model_settings,
     )
     # Preserve structured evidence, dates, gaps and tool arguments for the writer.
     prompt = json.dumps(
-        {"user_input": user_input, "research_results": research_results},
+        {
+            "user_input": user_input,
+            "lead_assessment": lead_assessment,
+            "research_results": research_results,
+        },
         ensure_ascii=False,
         indent=2,
     )

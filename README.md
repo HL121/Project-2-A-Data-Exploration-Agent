@@ -18,8 +18,8 @@ The earlier two-card snapshots in `data/research_cards.json` and `data/cfpb_tccp
 
 ```bash
 uv sync
-uv run python researchers.py --monthly-grocery 800 --monthly-spend dining=300 --limit 5
-uv run python researchers.py --cards chase-freedom-unlimited wf-active-cash --monthly-spend dining=300 --monthly-spend other=500
+uv run python -m scripts.researchers --monthly-grocery 800 --monthly-spend dining=300 --limit 5
+uv run python -m scripts.researchers --cards chase-freedom-unlimited wf-active-cash --monthly-spend dining=300 --monthly-spend other=500
 uv run python -m unittest discover -s tests -v
 ```
 
@@ -34,17 +34,21 @@ Configure the same Vertex AI application credentials used for the course project
 ```bash
 export GOOGLE_CLOUD_PROJECT=your-gcp-project
 export GOOGLE_CLOUD_LOCATION=global
+export CARDWISE_LEAD_MODEL=vertex_ai/gemini-3.5-flash
+export CARDWISE_LEAD_FALLBACK_MODEL=vertex_ai/gemini-3.5-flash-lite
+export CARDWISE_RESEARCH_MODEL=vertex_ai/gemini-3.5-flash-lite
+export CARDWISE_WRITER_MODEL=vertex_ai/gemini-3.5-flash
 export CARDWISE_SEARCH_MODEL=gemini-3.5-flash-lite
-uv run python researchers.py --cards chase-freedom-unlimited wf-active-cash --monthly-spend dining=300 --monthly-spend other=500 --research
+uv run python -m scripts.researchers --cards chase-freedom-unlimited wf-active-cash --monthly-spend dining=300 --monthly-spend other=500 --research
 ```
 
-The standalone demo starts the three researchers concurrently in fresh contexts. `CARDWISE_RESEARCH_MODEL` can override the default `vertex_ai/gemini-3.5-flash-lite` model used by the Agents SDK. `CARDWISE_SEARCH_MODEL` controls the separate Google GenAI request that enables Google Search. Search and function calling run in separate requests.
+The standalone demo starts the three researchers concurrently in fresh contexts. The Lead defaults to `vertex_ai/gemini-3.5-flash` and falls back to `vertex_ai/gemini-3.5-flash-lite` only when Vertex returns a capacity-related 429. Researchers default to flash-lite, and the Writer defaults to flash. `CARDWISE_LEAD_MODEL`, `CARDWISE_LEAD_FALLBACK_MODEL`, `CARDWISE_RESEARCH_MODEL`, and `CARDWISE_WRITER_MODEL` override them independently. `CARDWISE_SEARCH_MODEL` controls the separate Google GenAI request that enables Google Search. Search and function calling run in separate requests.
 
 | Researcher | Tools and behavior |
 |---|---|
 | Rewards | `discover_cards` searches the full catalog. `screen_spending` proposes candidates for a spending profile. `lookup_rewards` returns rates, rewards notes, and dated bonuses. `check_welcome_offer` reports missing qualification terms when the catalog lacks them. |
 | Costs | `lookup_costs` matches a catalog card using issuer aliases and the normalized product name. A unique exact match supplies historical evidence. Ambiguous matches and fuzzy suggestions remain unverified. `search_survey` searches every CFPB product directly. `model_historical_costs` estimates interest and fees from explicit scenario inputs. |
-| Issuer Verification | `search_official_terms` discovers issuer pages using Google Search. It accepts only answer segments with grounding citations to the issuer's domains. `calculate_verified_rewards` calculates cash back from normalized rules, each referencing a grounded claim from the same research context. Missing caps, reset periods, or other necessary fields require follow-up. |
+| Issuer Verification | `search_official_terms` discovers issuer pages using Google Search. It accepts only answer segments with grounding citations to the issuer's domains. `calculate_verified_rewards` calculates cash back from normalized rules, each referencing a grounded claim from the same research context; it rejects a normalized field or value that is not semantically supported by that claim. Lead completion checks required issuer fields separately for every researched card. Missing fees, rates, caps, reset periods, or other necessary fields require follow-up. |
 
 `issuer_search.py` stores issuer domains for source validation, while product-page URLs are discovered at runtime. Google citation redirects are resolved to identify the source domain. Unsupported sources and ungrounded text remain outside the verified evidence. Google Search suggestions are preserved in `search_entry_point_html` for the frontend to present according to the [grounding documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-search).
 
@@ -52,7 +56,23 @@ The candidate screening stage and the official verification stage serve differen
 
 ### Integrate with the Lead
 
-Call `build_researcher_agents(model, model_settings)` to construct the agents and `run_researcher(agent, card_ids, task, hooks=hooks)` for each task. Each call returns a summary, structured `findings`, `unresearched_card_ids`, and Project 1–style `tool_calls` with an `agent` field. The Lead can combine those traces and reassign a specific evidence gap. `CARD_IDS` contains all catalog slugs. `EXAMPLE_CARD_IDS` identifies the two original Amex examples.
+`scripts/lead.py` implements the end-to-end Lead → Researchers → Writer workflow. The Lead resolves explicitly named cards itself; for an open-market recommendation it asks the Rewards Researcher to screen up to four candidates in a separate discovery phase. Successful discovery can run only once. Formal research rounds execute in order from one through three: a round cannot be skipped, revisited, or started while an earlier round still has active work. A failed Researcher invocation is retried once. Code caps each run at ten actual Researcher calls, including retries and discovery, and rejects identical repeated assignments while allowing one Researcher to handle multiple distinct tasks in the same round. Before returning `RESEARCH_COMPLETE`, the Lead saves a concise Research Assessment with verified facts, resolved conflicts, and unresolved gaps. Every verified fact is a structured `{statement, evidence_ids}` record and must cite at least one evidence ID actually collected during the run. The Writer runs only when both the assessment and exact completion signal are present, and receives the assessment alongside the full structured evidence.
+
+Agent modules live together under `scripts/`: `lead.py` owns orchestration, `researchers.py` owns the three evidence-gathering agents and their tools, and `writer.py` owns final synthesis. The root `app.py` only provides the FastAPI and Server-Sent Events web layer.
+
+Live Issuer agents expose a single extraction/calculation path: `search_official_terms` → `register_issuer_terms` → `calculate_from_terms`. Legacy normalization and calculation tools are available only with explicit `build_researcher_agents(..., legacy_tools=True)` for compatibility tests, not the default application. Cards without local snapshots do not expose the snapshot fallback at runtime. Quote errors return the collected source text for correction without another search; exhausted fields instruct the researcher to stop retrying. Unchanged calculation inputs and registered terms reuse a cached result; newly registered terms allow recalculation. Lead rejects dispatches whose Researcher tool budget is already exhausted.
+
+The preferred issuer workflow is `register_issuer_terms` → `calculate_from_terms`. The researcher interprets source quotes into fee, rate, and cap-status fields scoped to a category or explicitly to all purchases. Registration checks quote provenance, numeric consistency, scope boundaries, and bounded field repairs; model interpretation is retained as `verification_method: quoted_model_extraction`, not a guarantee of semantic correctness. The calculator consumes only registered terms relevant to nonzero spending. Missing terms preserve successful category results without publishing a verified net total. Explicit unknown-cap assumptions produce `conditional_estimate`, which Lead cannot treat as a verified estimate. Legacy rule-normalization/calculator tools remain for snapshot compatibility.
+
+Researcher evidence is retained across follow-up rounds in a per-role trace. Each role has a run-wide budget of 24 tool attempts, with at most eight invocations of any individual tool; identical tool arguments are blocked before external work. Individual model-request retries remain in the model adapter. A Researcher execution error or turn limit returns partial evidence rather than restarting its completed steps. `normalize_issuer_rules` registers each supported field independently; a failed calculation retains accepted fields and identifies all invalid fields and matching collected claims. Issuer handoff summaries publish numeric reward calculations only from successful calculator records. Lead handoffs include current per-card coverage, calculation status, per-tool remaining capacity and terminal budget reasons; a later successful follow-up closes an earlier failed assignment. Assessment verified facts are rendered directly from their referenced evidence values, source types and dates. Machine-detected quality issues are retained separately from the model's concise-summary quota.
+
+Call `deep_research(user_input, hooks=None)` or `cardwise_answer(query)` for the complete workflow. The Lead uses `build_researcher_agents(model, model_settings)` and `run_researcher(agent, card_ids, task, hooks=hooks)` internally. Each researcher call returns a summary, structured `findings`, `unresearched_card_ids`, and Project 1–style `tool_calls` with an `agent` field. `CARD_IDS` contains all catalog slugs. `EXAMPLE_CARD_IDS` identifies the two original Amex examples.
+
+To run the web application:
+
+```bash
+uv run python app.py
+```
 
 `estimate_spending_rewards(card_id, monthly_spend, issuer_evidence)` accepts structured issuer snapshot or grounded evidence. The issuer agent supplies the ongoing annual fee, bonus categories, capped categories, category rates, cap amounts, reset periods, and rates above the caps. Each normalized field retains its supporting claim. The grocery-only calculator remains available for the original examples.
 
@@ -90,7 +110,7 @@ Consult official issuer sources to verify rewards rules, spending caps, eligible
 
 ## 3. Agent Architecture
 
-The diagram shows the intended end-to-end workflow. The three CardWise researchers can be run on their own using the commands above. The existing web application starter still requires integration by the Lead and frontend owners.
+The diagram shows the implemented end-to-end workflow. The three CardWise researchers can also be run on their own using the commands above.
 
 ```mermaid
 flowchart TD

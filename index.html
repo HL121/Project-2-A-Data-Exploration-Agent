@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Wikipedia Deep Research</title>
+        <title>CardWise Deep Research</title>
         <style>
             * {
                 box-sizing: border-box;
@@ -108,16 +108,13 @@
     </head>
     <body>
         <main>
-            <h1>Deep research: a lead splits your question, researchers walk Wikipedia in parallel, and a writer turns their findings into a cited report</h1>
+            <h1>CardWise: deep research for evidence-based credit card comparisons</h1>
 
             <section>
                 <h2>Task</h2>
                 <form id="task">
                     <label>Question
-                        <input id="question" value="How did the Apollo program's computers influence later computing?" placeholder="What do you want to know?" autocomplete="off" />
-                    </label>
-                    <label>Starting article
-                        <input id="url" value="https://en.wikipedia.org/wiki/Apollo_program" placeholder="A Wikipedia URL, e.g. https://en.wikipedia.org/wiki/Apollo_program" autocomplete="off" />
+                        <input id="question" value="I spend $800 per month on groceries, pay in full, and can accept a $95 annual fee. Compare Amex Blue Cash Preferred and Blue Cash Everyday." placeholder="Describe your spending, repayment habits, fee preference, or cards to compare" autocomplete="off" />
                     </label>
                     <button id="run" type="submit">Run</button>
                 </form>
@@ -167,7 +164,7 @@
             $("task").addEventListener("submit", (e) => {
                 e.preventDefault();
                 if (source) source.close();
-                const params = new URLSearchParams({ question: $("question").value.trim(), url: $("url").value.trim() });
+                const params = new URLSearchParams({ question: $("question").value.trim() });
 
                 $("activity").replaceChildren();
                 $("output").className = "empty";

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from researchers import (
+from scripts.researchers import (
     EXAMPLE_CARD_IDS,
 
     check_catalog_welcome_offer,

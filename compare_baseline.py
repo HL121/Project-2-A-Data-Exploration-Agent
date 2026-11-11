@@ -2,7 +2,7 @@
 
     uv run python compare_baseline.py "Your question here"
 
-The CardWise Lead must be connected in ``cardwise_answer`` before this can run.
+The same query is sent to the complete CardWise pipeline and to the base model.
 """
 
 import argparse
@@ -15,7 +15,7 @@ from pathlib import Path
 async def baseline_answer(query: str) -> tuple[str, str]:
     """Call the Writer's model with the query only: no system prompt or tools."""
     import litellm
-    from app import MODEL, SETTINGS
+    from scripts.lead import MODEL, SETTINGS
 
     response = await litellm.acompletion(
         model=MODEL.model,
@@ -29,11 +29,10 @@ async def baseline_answer(query: str) -> tuple[str, str]:
 
 
 async def cardwise_answer(query: str) -> str:
-    """Call the completed CardWise Lead once its entry point is available."""
-    raise NotImplementedError(
-        "CardWise Lead is not integrated yet. Connect cardwise_answer() to the "
-        "completed Lead before running the comparison."
-    )
+    """Call the CardWise Lead, Researchers, and Writer pipeline."""
+    from scripts.lead import cardwise_answer as run_cardwise
+
+    return await run_cardwise(query)
 
 
 async def compare(query: str) -> dict:
@@ -58,7 +57,7 @@ def main() -> None:
 
     try:
         result = asyncio.run(compare(args.query))
-    except NotImplementedError as exc:
+    except (RuntimeError, ValueError) as exc:
         parser.exit(1, f"{exc}\n")
     # The same query gets a recognizable, stable filename without exposing its text.
     query_id = hashlib.sha256(args.query.encode("utf-8")).hexdigest()[:12]
