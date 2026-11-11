@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace as Obj
 from unittest.mock import AsyncMock, patch
 
-from issuer_search import parse_grounded_response
+from issuer_search import _product_tokens, parse_grounded_response
 from research_data import catalog, match_cfpb, search_cards, search_cfpb_products, shortlist_cards, survey
 from scripts.researchers import research_costs, research_rewards, verify_issuer_terms
 
@@ -71,6 +71,27 @@ class CatalogTests(unittest.TestCase):
 
 
 class GroundingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_product_identity_ignores_issuer_name_boilerplate(self):
+        self.assertEqual(_product_tokens(catalog()['usbank-altitude-go']), {'altitude', 'go'})
+        self.assertEqual(_product_tokens(catalog()['savor']), {'savor'})
+        self.assertEqual(_product_tokens(catalog()['savorone-cash-rewards']), {'savorone'})
+
+        metadata = Obj(
+            grounding_chunks=[Obj(web=Obj(
+                uri='https://www.usbank.com/credit-cards/altitude-go-visa-signature-credit-card.html',
+                title='U.S. Bank',
+            ))],
+            grounding_supports=[Obj(
+                segment=Obj(text='Altitude Go earns rewards on dining.'),
+                grounding_chunk_indices=[0],
+            )],
+            web_search_queries=[], search_entry_point=None,
+        )
+        result = await parse_grounded_response(
+            'usbank-altitude-go', 'Us Bank', Obj(candidates=[Obj(grounding_metadata=metadata)]),
+        )
+        self.assertEqual(result['status'], 'grounded')
+
     async def test_only_official_supported_claims_are_returned(self):
         chunks = [Obj(web=Obj(uri='https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited', title='Chase')),
                   Obj(web=Obj(uri='https://chase.com.example.org/card', title='Unrelated'))]

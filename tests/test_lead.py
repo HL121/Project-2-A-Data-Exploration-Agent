@@ -76,21 +76,17 @@ class LeadOrchestrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot move backward"):
             run.reserve_assignment(1, COSTS, ["wf-active-cash"], "Late round one task")
 
-    def test_multicard_round_one_requires_all_three_researchers(self):
+    def test_multicard_round_one_requires_only_planned_researchers(self):
         run = self.make_run()
         cards = ["blue-cash-preferred", "blue-cash-everyday"]
+        run.required_round_one_researchers = {ISSUER, COSTS}
         issuer = run.reserve_assignment(1, ISSUER, cards, "Verify current terms")
         run.finish_assignment(issuer, succeeded=True)
-        self.assertEqual(
-            set(run.missing_required_round_one_researchers()),
-            {REWARDS, COSTS},
-        )
-        with self.assertRaisesRegex(ValueError, "require all three Researchers"):
+        self.assertEqual(set(run.missing_required_round_one_researchers()), {COSTS})
+        with self.assertRaisesRegex(ValueError, "planned round-one research is incomplete"):
             run.reserve_assignment(2, ISSUER, cards, "Follow up")
 
-        rewards = run.reserve_assignment(1, REWARDS, cards, "Compare rewards")
         costs = run.reserve_assignment(1, COSTS, cards, "Compare costs")
-        run.finish_assignment(rewards, succeeded=True)
         run.finish_assignment(costs, succeeded=True)
         self.assertEqual(run.missing_required_round_one_researchers(), [])
         run.reserve_assignment(2, ISSUER, cards, "Targeted follow up")
@@ -174,6 +170,30 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(maximum_active, 3)
         self.assertEqual({item["researcher"] for item in state.assignments}, set(agents))
+
+    async def test_multicard_round_one_skips_empty_researcher_tasks(self):
+        agents = {REWARDS: object(), COSTS: object(), ISSUER: object()}
+        state = ResearchRun(hooks=None, researcher_agents=agents)
+        lead = build_lead_agent("test-model")
+        tool = next(tool for tool in lead.tools if tool.name == "run_round_one")
+        arguments = json.dumps({
+            "card_ids": ["blue-cash-preferred", "blue-cash-everyday"],
+            "rewards_task": "",
+            "costs_task": "",
+            "issuer_task": "Verify current rewards and calculate returns",
+        })
+        context = ToolContext(context=state, tool_name=tool.name,
+                              tool_call_id="selective-round-one", tool_arguments=arguments)
+        result = {
+            "agent": ISSUER, "summary": "Done.", "findings": [], "tool_calls": [],
+            "unresearched_card_ids": [], "quality_issues": [],
+        }
+        with patch("scripts.lead.run_researcher", new=AsyncMock(return_value=result)) as run:
+            outcome = await tool.on_invoke_tool(context, arguments)
+        self.assertEqual(outcome["status"], "completed")
+        run.assert_awaited_once()
+        self.assertEqual({item["researcher"] for item in state.assignments}, {ISSUER})
+        self.assertEqual(state.required_round_one_researchers, {ISSUER})
 
     async def test_direct_multicard_round_one_delegation_is_rejected(self):
         state = ResearchRun(hooks=None, researcher_agents={REWARDS: object()})
@@ -490,6 +510,39 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             "calculation" in gap.casefold()
             for gap in state.lead_assessment["unresolved_gaps"]
         ))
+
+    async def test_incomplete_assessment_stops_after_no_progress_follow_up(self):
+        state = ResearchRun(hooks=None, researcher_agents={})
+        failed_call = {
+            "name": "calculate_from_terms",
+            "args": {"card_id": "wf-active-cash", "spending": {"grocery": 500}},
+            "result": {"card_id": "wf-active-cash", "status": "insufficient_evidence"},
+        }
+        state.research_results.extend([
+            {
+                "agent": ISSUER, "round": 1, "card_ids": ["wf-active-cash"],
+                "task": "Calculate cash back", "status": "incomplete",
+                "unresearched_card_ids": [], "tool_calls": [failed_call],
+            },
+            {
+                "agent": ISSUER, "round": 2, "card_ids": ["wf-active-cash"],
+                "task": "Repair missing calculation", "status": "incomplete",
+                "unresearched_card_ids": [], "tool_calls": [failed_call],
+            },
+        ])
+        state.current_formal_round = 2
+        lead = build_lead_agent("test-model")
+        tool = next(tool for tool in lead.tools if tool.name == "save_research_assessment")
+        payload = {
+            "research_status": "incomplete", "verified_facts": [],
+            "resolved_conflicts": [], "unresolved_gaps": [],
+        }
+        arguments = json.dumps(payload)
+        context = ToolContext(context=state, tool_name=tool.name,
+                              tool_call_id="no-progress-stop", tool_arguments=arguments)
+        await tool.on_invoke_tool(context, arguments)
+        self.assertEqual(state.lead_assessment["stop_reason"], "no_progress")
+        self.assertEqual(state.current_formal_round, 2)
 
     def test_later_estimated_calculation_resolves_earlier_failure(self):
         state = ResearchRun(hooks=None, researcher_agents={})

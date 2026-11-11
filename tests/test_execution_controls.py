@@ -45,6 +45,19 @@ class EvidenceTests(unittest.TestCase):
         result = calculate_registered_terms('example', {'dining': 500, 'other': 300}, calls)
         self.assertEqual(result['net_cash_back_usd'], 192)
 
+    def test_entertainment_is_a_first_class_calculation_category(self):
+        calls = self.registered({
+            'annual_fee_usd': 0,
+            'dining_rate_pct': 3, 'dining_cap_status': 'uncapped',
+            'entertainment_rate_pct': 3, 'entertainment_cap_status': 'uncapped',
+            'grocery_rate_pct': 3, 'grocery_cap_status': 'uncapped',
+        })
+        result = calculate_registered_terms(
+            'example', {'dining': 700, 'entertainment': 300, 'grocery': 200}, calls,
+        )
+        self.assertEqual(result['status'], 'estimated')
+        self.assertEqual(result['net_cash_back_usd'], 432)
+
     def test_normalization_keeps_good_fields_when_another_field_fails(self):
         calls = [{'name': 'search_official_terms', 'result': {'evidence': [{
             'card_id': 'example', 'claim_id': 'fee', 'field': 'issuer_grounded_claim',

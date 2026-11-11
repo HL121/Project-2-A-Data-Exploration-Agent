@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, patch
 from agents import ModelSettings
 
 from scripts.researchers import COSTS, ISSUER
-from scripts.writer import _prepare_writer_input, generate_report
+from scripts.writer import (
+    _evidence_constraint_violations, _prepare_writer_input, _safe_incomplete_report,
+    _violates_decision_gate,
+    generate_report,
+)
 
 
 def grounded_claim(evidence_id, text="Annual fee: $95."):
@@ -184,8 +188,145 @@ class WriterInputTests(unittest.TestCase):
         self.assertEqual(outcome["inputs"]["average_interest_bearing_balance_usd"], 1000)
         self.assertEqual(outcome["scenarios"]["median"]["historical_apr_pct"], 24.0)
 
+    def test_card_reportability_preserves_unknowns(self):
+        payload = self.prepare()
+        card = payload["card_reportability"]["card-a"]
+        self.assertEqual(card["cap_status"], "unknown")
+        self.assertFalse(card["point_value_verified"])
+        self.assertFalse(card["reportable_annual_total"])
+        self.assertTrue(card["official_terms_verified"])
+
+    def test_partial_calculations_get_scoped_comparison_readiness(self):
+        results = []
+        for card_id, net in (("card-a", 200), ("card-b", 180)):
+            results.append({
+                "agent": ISSUER, "round": 1, "card_ids": [card_id],
+                "task": "Calculate verified rewards", "status": "completed",
+                "tool_calls": [{
+                    "name": "calculate_from_terms", "args": {"card_id": card_id},
+                    "result": {"card_id": card_id, "status": "estimated",
+                               "net_cash_back_usd": net},
+                }],
+            })
+        results.append({
+            "agent": ISSUER, "round": 1, "card_ids": ["card-c"],
+            "task": "Calculate verified rewards", "status": "incomplete", "tool_calls": [],
+        })
+        readiness = self.prepare(
+            results=results, assessment={"research_status": "incomplete"},
+        )["decision_readiness"]
+        self.assertEqual(readiness["conclusion_scope"], "verified_candidates_only")
+        self.assertEqual(readiness["comparison_eligible_cards"], ["card-a", "card-b"])
+        self.assertEqual(readiness["excluded_from_ranking_cards"], ["card-c"])
+
+    def test_evidence_gate_rejects_unknown_cap_point_value_and_manual_total(self):
+        payload = self.prepare()
+        report = (
+            "Card A has no cap and is unlimited.\n"
+            "Card A has a statement credit value of 0.6 cents per point.\n"
+            "Card A estimated annual rewards: $180.\n"
+            "Cards in the broader market often feature higher rates."
+        )
+        violations = _evidence_constraint_violations(report, payload)
+        self.assertTrue(any("unknown cap" in item for item in violations))
+        self.assertTrue(any("point redemption" in item for item in violations))
+        self.assertTrue(any("annual total" in item for item in violations))
+        self.assertTrue(any("market knowledge" in item for item in violations))
+
+    def test_evidence_gate_matches_common_card_display_names(self):
+        payload = {"card_reportability": {
+            "wf-active-cash": {
+                "name": "Wells Fargo Active Cash® Card", "cap_status": "unknown",
+                "point_value_verified": False, "reportable_annual_total": False,
+                "official_terms_verified": False,
+            },
+            "amex-everyday": {
+                "name": "Amex EveryDay® Credit Card", "cap_status": "capped",
+                "point_value_verified": False, "reportable_annual_total": False,
+                "official_terms_verified": False,
+            },
+        }}
+        report = (
+            "| Wells Fargo Active Cash | 2% | None |\n"
+            "The Amex EveryDay statement credit value is 0.6 cents per point."
+        )
+        violations = _evidence_constraint_violations(report, payload)
+        self.assertTrue(any("wf-active-cash" in item and "unknown cap" in item for item in violations))
+        self.assertTrue(any("amex-everyday" in item and "point redemption" in item for item in violations))
+
+    def test_evidence_gate_rejects_internal_instruction_and_unknown_table_placeholder(self):
+        payload = {"card_reportability": {}}
+        report = (
+            "Research is incomplete; report verified findings without declaring a definitive winner.\n"
+            "| Grocery exclusions | N/A |\n"
+        )
+        violations = _evidence_constraint_violations(report, payload)
+        self.assertTrue(any("internal instruction" in item for item in violations))
+        self.assertTrue(any("N/A" in item for item in violations))
+
+    def test_safe_fallback_is_scoped_and_user_facing(self):
+        payload = {
+            "calculations_by_card": {
+                "savor": {
+                    "status": "estimated", "gross_cash_back_usd": 432,
+                    "annual_fee_usd": 0, "net_cash_back_usd": 432,
+                    "inputs": {"spending": {
+                        "dining": 700, "entertainment": 300, "grocery": 200,
+                    }},
+                    "categories": [
+                        {"category": "dining", "status": "estimated", "cash_back_usd": 252},
+                        {"category": "entertainment", "status": "estimated", "cash_back_usd": 108},
+                        {"category": "grocery", "status": "estimated", "cash_back_usd": 72},
+                    ],
+                    "evidence_ids": ["savor-rate"],
+                },
+                "alliant": {
+                    "status": "estimated", "gross_cash_back_usd": 216,
+                    "annual_fee_usd": 0, "net_cash_back_usd": 216,
+                    "inputs": {"spending": {"other": 1200}}, "categories": [],
+                    "evidence_ids": ["alliant-rate"],
+                },
+            },
+            "card_reportability": {
+                "savor": {"name": "Capital One Savor"},
+                "alliant": {"name": "Alliant Cashback Visa"},
+                "altitude": {"name": "U.S. Bank Altitude Go"},
+            },
+            "decision_readiness": {"excluded_from_ranking_cards": ["altitude"]},
+            "evidence": [
+                {"evidence_id": "savor-rate", "source_url": "https://issuer.example/savor"},
+                {"evidence_id": "alliant-rate", "source_url": "https://issuer.example/alliant"},
+            ],
+            "lead_assessment": {"verified_facts": [{"statement": "issuer_grounded_claim=raw"}]},
+        }
+        answer = _safe_incomplete_report(payload)
+        self.assertIn("Among the verified cards", answer)
+        self.assertIn("$432.00", answer)
+        self.assertIn("Entertainment: **$108.00/year** from $300.00/month", answer)
+        self.assertIn("What could change this comparison", answer)
+        self.assertIn("shifting spending among them does not", answer)
+        self.assertIn("It was excluded", answer)
+        self.assertIn("https://issuer.example/savor", answer)
+        self.assertNotIn("issuer_grounded_claim", answer)
+
 
 class GenerateReportTests(unittest.IsolatedAsyncioTestCase):
+    def test_incomplete_gate_allows_explicitly_negated_superlative(self):
+        self.assertFalse(_violates_decision_gate(
+            "The evidence cannot determine the highest-return card.",
+            {"can_declare_winner": False},
+        ))
+
+    def test_incomplete_gate_allows_explicitly_scoped_verified_comparison(self):
+        self.assertFalse(_violates_decision_gate(
+            "Among the verified cards, Card A has the highest estimate; Card C was excluded.",
+            {"can_declare_winner": False, "conclusion_scope": "verified_candidates_only"},
+        ))
+        self.assertTrue(_violates_decision_gate(
+            "Card A has the highest estimate.",
+            {"can_declare_winner": False, "conclusion_scope": "verified_candidates_only"},
+        ))
+
     async def test_writer_receives_prepared_input(self):
         result = type("Result", (), {"final_output": "# Report"})()
         results = WriterInputTests().issuer_results()
@@ -199,8 +340,34 @@ class GenerateReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(prompt), {
             "user_input", "lead_assessment", "researcher_reports", "evidence",
             "calculations_by_card", "tool_results", "unresolved_extraction_failures",
+            "decision_readiness", "card_reportability",
         })
+        self.assertFalse(prompt["decision_readiness"]["can_declare_winner"])
+        self.assertIn("card-a", prompt["decision_readiness"]["manual_calculation_prohibited_cards"])
         self.assertNotIn("research_results", prompt)
+
+    async def test_incomplete_writer_claim_is_rewritten(self):
+        first = type("Result", (), {"final_output": "Card A is the best card."})()
+        second = type("Result", (), {"final_output": "Research is incomplete; Card A was verified."})()
+        with patch("scripts.writer.Runner.run", new=AsyncMock(side_effect=[first, second])) as run:
+            answer = await generate_report(
+                "Which card?", [], {"research_status": "incomplete", "unresolved_gaps": ["Card B"]},
+                model="test-model", model_settings=ModelSettings(),
+            )
+        self.assertEqual(answer, "Research is incomplete; Card A was verified.")
+        self.assertEqual(run.await_count, 2)
+        correction = json.loads(run.await_args_list[1].args[1])
+        self.assertIn("source_material", correction)
+
+    async def test_repeated_incomplete_writer_claim_uses_safe_fallback(self):
+        bad = type("Result", (), {"final_output": "Card A is the highest and best."})()
+        with patch("scripts.writer.Runner.run", new=AsyncMock(return_value=bad)):
+            answer = await generate_report(
+                "Which card?", [], {"research_status": "incomplete", "unresolved_gaps": ["Card B"]},
+                model="test-model", model_settings=ModelSettings(),
+            )
+        self.assertIn("cannot support a ranking", answer)
+        self.assertIn("Card B", answer)
 
 
 if __name__ == "__main__":

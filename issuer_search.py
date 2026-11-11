@@ -36,6 +36,10 @@ def _official(url: str, domains: tuple[str, ...]) -> bool:
 _GENERIC_PRODUCT_WORDS = {
     "american", "express", "bank", "card", "credit", "from", "the", "of",
     "rewards", "visa", "mastercard", "world", "elite", "wells", "fargo", "chase",
+    # Legal/network/name boilerplate is often omitted from issuer snippets and
+    # URLs. Requiring it caused exact products such as "Altitude Go" and
+    # "Savor" to fail identity checks even on their own official pages.
+    "u", "s", "signature", "cash",
 }
 
 

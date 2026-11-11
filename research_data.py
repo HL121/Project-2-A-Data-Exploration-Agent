@@ -29,8 +29,16 @@ ISSUER_ALIASES = {
     "usaa": {"usaa federal savings bank"},
     "wells fargo": {"wells fargo bank national association"},
 }
-CATEGORY_KEYS = {"grocery": "groceries", "online_retail": "online", "transit": "other"}
-SPEND_CATEGORIES = {"grocery", "dining", "travel", "gas", "online_retail", "transit", "streaming", "other"}
+CATEGORY_KEYS = {
+    "grocery": "groceries", "online_retail": "online", "transit": "other",
+    # The catalog has no typed entertainment field. Use its conservative base-rate
+    # bucket for discovery only; issuer verification can register the actual rate.
+    "entertainment": "other",
+}
+SPEND_CATEGORIES = {
+    "grocery", "dining", "entertainment", "travel", "gas", "online_retail",
+    "transit", "streaming", "other",
+}
 
 
 def words(value: str) -> str:

@@ -177,18 +177,22 @@ class PanelHooks(RunHooks):
     """Records each agent's context in contexts, exactly as the model saw it: on_llm_start gets the
     system prompt and every input item, and on_llm_end gets the reply. emit gets an event per change:
         {"type": "context", "agent"}            a context changed: call showContext() on the page
-        {"type": "activity", "agent", "text"}   one line per step: started, called a tool, handed off
+        {"type": "activity", "agent", "kind", "text"} one timeline event. ``kind`` separates
+            agent lifecycle, orchestration and leaf research actions so the UI can count them honestly.
     Subclass it to emit events of your own."""
 
     def __init__(self, contexts: AgentContexts, emit):
         self.contexts = contexts
         self.emit = emit
 
-    def activity(self, agent: str, text: str) -> None:
-        self.emit({"type": "activity", "agent": agent, "text": text})
+    def activity(self, agent: str, text: str, *, kind: str, action: str | None = None) -> None:
+        event = {"type": "activity", "agent": agent, "kind": kind, "text": text}
+        if action:
+            event["action"] = action
+        self.emit(event)
 
     async def on_agent_start(self, context, agent):
-        self.activity(agent.name, "started")
+        self.activity(agent.name, "started", kind="agent_lifecycle")
 
     async def on_llm_start(self, context, agent, system_prompt, input_items):
         self.contexts.set(agent.name, from_agents_sdk(system_prompt, [_plain(i) for i in input_items]))
@@ -199,13 +203,32 @@ class PanelHooks(RunHooks):
         self.emit({"type": "context", "agent": agent.name})
 
     async def on_tool_start(self, context, agent, tool):
-        self.activity(agent.name, f"called {tool.name}")
+        orchestration = (
+            tool.name == "discover_candidates"
+            or tool.name == "run_round_one"
+            or tool.name == "save_research_assessment"
+            or tool.name.startswith("delegate_")
+        )
+        self.activity(
+            agent.name,
+            f"called {tool.name}",
+            kind="orchestration" if orchestration else "research_action",
+            action=tool.name,
+        )
 
     async def on_handoff(self, context, from_agent, to_agent):
-        self.activity(from_agent.name, f"handed off to {to_agent.name}")
+        self.activity(
+            from_agent.name,
+            f"handed off to {to_agent.name}",
+            kind="handoff",
+        )
 
     async def on_agent_end(self, context, agent, output):
-        self.activity(agent.name, f"finished: {_first_line(output)}")
+        self.activity(
+            agent.name,
+            f"finished: {_first_line(output)}",
+            kind="agent_lifecycle",
+        )
 
 
 if __name__ == "__main__":

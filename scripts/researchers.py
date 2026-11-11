@@ -25,7 +25,10 @@ ISSUER = "Issuer Verification Researcher"
 CALCULATION_TOOLS = {"calculate_verified_rewards", "calculate_from_terms"}
 CARD_IDS = tuple(catalog())
 EXAMPLE_CARD_IDS = ("blue-cash-preferred", "blue-cash-everyday")
-SPEND_CATEGORIES = ("grocery", "dining", "travel", "gas", "online_retail", "transit", "streaming", "other")
+SPEND_CATEGORIES = (
+    "grocery", "dining", "entertainment", "travel", "gas", "online_retail",
+    "transit", "streaming", "other",
+)
 IssuerSection = Literal["product", "terms", "all"]
 CFPB_FIELDS = {
     "annual fee": "annual_fee_usd",
@@ -256,6 +259,7 @@ def _grounded_claim_supports(field_name: str, value, claim_text: str) -> bool:
     category_aliases = {
         "grocery": ("grocery", "groceries", "supermarket"),
         "dining": ("dining", "restaurant"),
+        "entertainment": ("entertainment", "movie", "theater", "concert", "event"),
         "travel": ("travel",),
         "gas": ("gas", "fuel"),
         "online": ("online retail", "online purchase"),
@@ -854,6 +858,7 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
     class SpendingProfile:
         grocery: float = 0
         dining: float = 0
+        entertainment: float = 0
         travel: float = 0
         gas: float = 0
         online_retail: float = 0

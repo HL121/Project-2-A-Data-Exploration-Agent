@@ -860,7 +860,7 @@
 
                 const current = el("div", "current", "Waiting for the Lead…");
                 const steps = el("details", "steps");
-                const summary = el("summary", "", "Research steps (0)");
+                const summary = el("summary", "", "Research actions 0 · Agent runs 0");
                 const list = el("ol");
                 steps.append(summary, list);
 
@@ -872,12 +872,17 @@
                 card.append(head, pipeline, current, steps, report, actions);
                 $("messages").appendChild(msg);
                 scrollToEnd(true);
-                return { msg, card, state, elapsed, pipeline, chips, current, steps, summary, list, report, actions, count: 0 };
+                return {
+                    msg, card, state, elapsed, pipeline, chips, current, steps, summary,
+                    list, report, actions, researchActions: 0, agentRuns: 0
+                };
             }
 
-            function recordActivity(view, agent, text) {
-                view.count += 1;
-                view.summary.textContent = "Research steps (" + view.count + ")";
+            function recordActivity(view, agent, text, kind) {
+                if (kind === "research_action") view.researchActions += 1;
+                if (kind === "agent_lifecycle" && text === "started") view.agentRuns += 1;
+                view.summary.textContent =
+                    "Research actions " + view.researchActions + " · Agent runs " + view.agentRuns;
                 const li = el("li");
                 if (agent) li.appendChild(el("span", "agent", (SHORT[agent] || agent) + " "));
                 li.append(text);
@@ -945,7 +950,7 @@
                     } else if (event.type === "context") {
                         if (run.runId === panelRunId && !contextHidden()) showContext(run.runId);
                     } else if (event.type === "activity") {
-                        recordActivity(view, event.agent, event.text);
+                        recordActivity(view, event.agent, event.text, event.kind);
                         scrollToEnd();
                     } else if (event.type === "done") {
                         complete(run, event.markdown);
