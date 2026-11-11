@@ -1,0 +1,12 @@
+# Python caches and test artifacts
+__pycache__/
+
+# Local environments and credentials
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
