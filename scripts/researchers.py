@@ -603,9 +603,85 @@ def estimate_annual_grocery_rewards(
     }
 
 
+CAP_PERIODS = {"calendar_year", "annual", "calendar_quarter", "billing_cycle"}
+# Caps that cover one 12-month period. A one-year projection treats them alike.
+ANNUAL_CAP_PERIODS = {"calendar_year", "annual"}
+_CAP_PERIOD_ALIASES = {
+    "calendar_year": "calendar_year", "calendar_yr": "calendar_year",
+    "per_calendar_year": "calendar_year", "each_calendar_year": "calendar_year",
+    "annual": "annual", "annually": "annual", "yearly": "annual", "year": "annual",
+    "per_year": "annual", "each_year": "annual", "a_year": "annual", "12_months": "annual",
+    "anniversary_year": "annual", "cardmember_year": "annual", "account_year": "annual",
+    "calendar_quarter": "calendar_quarter", "quarter": "calendar_quarter",
+    "quarterly": "calendar_quarter", "per_quarter": "calendar_quarter",
+    "billing_cycle": "billing_cycle", "statement_cycle": "billing_cycle",
+    "billing_period": "billing_cycle", "monthly": "billing_cycle", "per_month": "billing_cycle",
+}
+
+
+def normalize_cap_period(value) -> str | None:
+    """Map a model-written cap period such as 'annual' or 'calendar year' to a supported value."""
+    text = re.sub(r"[\s\-]+", "_", str(value).strip().casefold())
+    return _CAP_PERIOD_ALIASES.get(text)
+
+
+_INTRO_ANNUAL_FEE = re.compile(
+    r"(?:intro(?:ductory)?|first[\s-]year|1st[\s-]year)[^.;]{0,40}annual\s+fee"
+    r"|annual\s+fee[^.;]{0,40}(?:intro(?:ductory)?|first[\s-]year|1st[\s-]year)",
+    re.IGNORECASE,
+)
+_ONGOING_FEE = re.compile(
+    r"(?:\bthen\b|after\s+(?:the\s+)?first\s+year)[^$.;]{0,30}\$\s*(\d[\d,]*(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def quote_states_intro_fee_only(quote: str, value) -> bool:
+    """True when a quote gives an introductory annual fee and `value` is not its ongoing fee."""
+    # "intro APR" near "annual fee" describes an interest rate, not the fee.
+    if not any("apr" not in quote[match.start():match.end() + 8].casefold()
+               for match in _INTRO_ANNUAL_FEE.finditer(quote)):
+        return False
+    try:
+        fee = _number(value)
+    except ValueError:
+        return True
+    return not any(_number(match.group(1).replace(",", "")) == fee
+                   for match in _ONGOING_FEE.finditer(quote))
+
+
+_TASK_AMOUNT = re.compile(r"\$\s*(\d[\d,]*(?:\.\d+)?)\s*(k\b)?", re.IGNORECASE)
+_YEARLY_SUFFIX = re.compile(
+    r"\s*(?:/\s*(?:yr|year)\b|per\s+(?:calendar\s+)?year|a\s+year|each\s+year|annual(?:ly)?\b|yearly)",
+    re.IGNORECASE,
+)
+
+
+def annualized_spending_categories(spending: dict, tasks: list[str]) -> list[str]:
+    """Return categories whose monthly input looks like an annual amount stated in the task.
+
+    A value is suspect when the task labels that amount as yearly, or when only its
+    one-twelfth appears in the task.
+    """
+    stated, yearly = set(), set()
+    for task in tasks:
+        for match in _TASK_AMOUNT.finditer(task):
+            amount = Decimal(match.group(1).replace(",", "")) * (1000 if match.group(2) else 1)
+            stated.add(amount)
+            if _YEARLY_SUFFIX.match(task, match.end()):
+                yearly.add(amount)
+    flagged = []
+    for category, monthly in spending.items():
+        value = _number(monthly)
+        if value and (value in yearly or (value not in stated and value / 12 in stated)):
+            flagged.append(category)
+    return flagged
+
+
 @dataclass
 class ResearchTrace:
     tool_calls: list[dict] = field(default_factory=list)
+    tasks: list[str] = field(default_factory=list)
     tool_attempts: int = 0
     signatures: set[str] = field(default_factory=set)
     tool_counts: dict[str, int] = field(default_factory=dict)
@@ -632,6 +708,7 @@ def calculate_registered_terms(card_id: str, spending: dict, calls: list[dict],
     if conflict:
         return conflict
     required, missing, categories, assumptions = set(), [], [], []
+    notes = []  # Context that does not change the verified status.
     gross = Decimal(0)
     for category, monthly in spending.items():
         amount = _number(monthly) * 12
@@ -639,11 +716,23 @@ def calculate_registered_terms(card_id: str, spending: dict, calls: list[dict],
             continue
         rate_field = 'all_rate_pct' if f'{category}_rate_pct' not in selected and 'all_rate_pct' in selected else f'{category}_rate_pct'
         cap_field = 'all_cap_status' if f'{category}_cap_status' not in selected and 'all_cap_status' in selected else f'{category}_cap_status'
-        required.update([rate_field, cap_field])
-        gaps = [name for name in (rate_field, cap_field) if name not in selected]
         cap_status = selected.get(cap_field, {}).get('value', 'unknown')
+        # A quoted cap amount for this category already establishes that it is capped,
+        # so a missing or unknown cap status is not a gap.
+        inferred_cap = cap_status == 'unknown' and f'{category}_cap_usd' in selected
+        if inferred_cap:
+            cap_status = 'capped'
+            notes.append(f'The {category} cap status is inferred as capped from the registered '
+                         f'{category}_cap_usd.')
+            required.add(rate_field)
+            gaps = [rate_field] if rate_field not in selected else []
+        else:
+            required.update([rate_field, cap_field])
+            gaps = [name for name in (rate_field, cap_field) if name not in selected]
         if cap_status == 'unknown' and cap_field not in gaps:
             gaps.append(cap_field)
+        if category in (assume_uncapped or []) and cap_status == 'capped':
+            notes.append(f'Ignored assume_uncapped for {category}: the evidence registers a cap.')
         if category in (assume_uncapped or []) and cap_status == 'unknown':
             gaps = [name for name in gaps if name != cap_field]
             cap_status = 'uncapped'
@@ -654,11 +743,17 @@ def calculate_registered_terms(card_id: str, spending: dict, calls: list[dict],
             required.update(cap_fields)
             gaps.extend(name for name in cap_fields if name not in selected)
             if not gaps:
-                if selected[f'{category}_cap_period']['value'] != 'calendar_year':
+                period = selected[f'{category}_cap_period']['value']
+                if period not in ANNUAL_CAP_PERIODS:
                     gaps.append(f'{category}_cap_period: unsupported period')
                 else:
                     cap = _number(selected[f'{category}_cap_usd']['value'])
                     over_rate = _number(selected[f'{category}_over_cap_rate_pct']['value'])
+                    if period == 'annual':
+                        notes.append(
+                            f'The {category} cap is stated per year without a reset date; treated as one '
+                            '12-month cap over a year of steady spending.'
+                        )
         if gaps:
             missing.extend(gaps)
             categories.append({'category': category, 'status': 'incomplete', 'missing_fields': gaps})
@@ -669,10 +764,23 @@ def calculate_registered_terms(card_id: str, spending: dict, calls: list[dict],
         categories.append({'category': category, 'status': 'estimated', 'cash_back_usd': _money(earned)})
     required.add('annual_fee_usd')
     if 'annual_fee_usd' not in selected:
+        # Issuer searches do not always return a citable fee sentence. The dated
+        # 67.CREDIT catalog fee is sourced evidence, so use it and say so.
+        card = catalog().get(card_id) or {}
+        if card.get('annualFee') is not None:
+            selected['annual_fee_usd'] = _evidence(card_id, {
+                'url': card['url'], 'as_of': card['lastVerified'],
+                'values': {'annual_fee_usd': card['annualFee']},
+            }, 'catalog_snapshot')[0]
+            notes.append(f"Annual fee from the 67.CREDIT catalog as of {card['lastVerified']}; "
+                         'the issuer evidence collected did not state it.')
+    if 'annual_fee_usd' not in selected:
         missing.append('annual_fee_usd')
     result = {'card_id': card_id, 'status': 'incomplete' if missing else 'conditional_estimate' if assumptions else 'estimated',
               'categories': categories, 'missing_fields': sorted(set(missing)), 'required_fields': sorted(required),
               'assumptions': assumptions, 'evidence': list(selected.values())}
+    if notes:
+        result['notes'] = notes
     if not missing:
         fee = _number(selected['annual_fee_usd']['value'])
         result.update(gross_cash_back_usd=_money(gross), annual_fee_usd=_money(fee), net_cash_back_usd=_money(gross-fee))
@@ -781,12 +889,17 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
                               terms: list[ExtractedTerm]) -> dict:
         """Extract decision terms with an EXACT supporting quote from a collected claim.
 
-        Interpret semantics from the quote. Fields: annual_fee_usd; all_rate_pct
+        Interpret semantics from the quote. Fields: annual_fee_usd is the ONGOING
+        annual fee (for "$0 intro annual fee the first year, then $95", it is 95);
+        first_year_annual_fee_usd is an introductory first-year fee. all_rate_pct
         and all_cap_status ONLY for a uniform rule covering all purchases;
         CATEGORY_rate_pct, CATEGORY_cap_status for category-specific rules.
         cap_status is uncapped, capped, or unknown. Silence about caps is UNKNOWN.
         For capped rules add CATEGORY_cap_usd, CATEGORY_cap_period and
-        CATEGORY_over_cap_rate_pct. Scope a category rule only to its category;
+        CATEGORY_over_cap_rate_pct; a registered CATEGORY_cap_usd already marks
+        the category as capped. cap_period is calendar_year ("per calendar
+        year"), annual ("per year" without a stated reset date), calendar_quarter,
+        or billing_cycle. Scope a category rule only to its category;
         never convert 'all OTHER purchases' into 'all purchases'.
         Register what is known for every card before filling gaps. No global
         bonus_categories or capped_categories lists are required.
@@ -796,13 +909,14 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
                   for item in call['result'].get('evidence', [])
                   if item.get('card_id') == card_id and item.get('claim_id')}
         accepted, errors = [], []
-        allowed = {'annual_fee_usd', 'all_rate_pct', 'all_cap_status'} | {
+        allowed = {'annual_fee_usd', 'first_year_annual_fee_usd', 'all_rate_pct', 'all_cap_status'} | {
             f'{category}_{suffix}' for category in SPEND_CATEGORIES
             for suffix in ('rate_pct', 'cap_status', 'cap_usd', 'cap_period', 'over_cap_rate_pct')}
         for term in terms:
             key = (card_id, term.field)
             claim = claims.get(term.claim_id)
             quote = ' '.join(term.quote.split())
+            value = term.value
             error = None
             if ctx.context.extraction_failures.get(key, 0) >= 2:
                 error = 'repair_exhausted'
@@ -818,8 +932,11 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
                 )):
                     error = 'cap_not_established'
             elif term.field.endswith('_cap_period'):
-                if term.value not in {'calendar_year', 'calendar_quarter', 'billing_cycle'}:
+                value = normalize_cap_period(term.value)
+                if value is None:
                     error = 'invalid_period'
+            elif term.field == 'annual_fee_usd' and quote_states_intro_fee_only(quote, term.value):
+                error = 'intro_fee_not_ongoing'
             else:
                 unit = 'percent' if term.field.endswith('_pct') else 'usd'
                 if not _text_has_number(quote, term.value, unit) and not (
@@ -840,10 +957,16 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
                                    if ctx.context.extraction_failures[key] >= 2 else
                                    'Copy an exact supporting quote from supporting_claim_text; do not search again for a quoting error.'
                                    if error == 'quote_or_claim_mismatch' and claim else
+                                   'Use one of: ' + ', '.join(sorted(CAP_PERIODS)) + '.'
+                                   if error == 'invalid_period' else
+                                   'annual_fee_usd is the ongoing fee. Register the introductory fee as '
+                                   'first_year_annual_fee_usd, and annual_fee_usd from a quote stating the '
+                                   'fee after the first year.'
+                                   if error == 'intro_fee_not_ongoing' else
                                    'Correct only this field from collected evidence; search only if evidence is absent.'
                                )})
             else:
-                accepted.append({**claim, 'field': term.field, 'value': term.value,
+                accepted.append({**claim, 'field': term.field, 'value': value,
                                  'quote': quote, 'verification_method': 'quoted_model_extraction',
                                  'evidence_id': f"{term.claim_id}:{term.field}"})
         args = {'card_id': card_id, 'terms': [asdict(term) for term in terms]}
@@ -854,15 +977,35 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
     @function_tool
     def calculate_from_terms(ctx: RunContextWrapper[ResearchTrace], card_id: str,
                              spending: SpendingProfile, assume_uncapped: list[str]) -> dict:
-        """Compute only from registered terms for NONZERO monthly spending.
+        """Compute only from registered terms for NONZERO MONTHLY spending.
 
-        This tool never interprets prose. Missing categories stay incomplete,
-        while successful category calculations remain available. Pass [] for
-        assume_uncapped for evidence-only results; explicitly assuming an unknown
-        cap yields conditional_estimate, never a verified estimate.
+        Every spending value is a MONTHLY amount; the tool annualizes internally.
+        For a user spending $800 per month on groceries, pass grocery=800, never
+        the annual total 9600. This tool never interprets prose. Missing
+        categories stay incomplete, while successful category calculations remain
+        available. Pass [] for assume_uncapped for evidence-only results;
+        explicitly assuming an unknown cap yields conditional_estimate, never a
+        verified estimate.
+
+        Args:
+            card_id: Assigned card ID.
+            spending: MONTHLY spending in USD by category, not annual totals.
+            assume_uncapped: Categories whose unknown cap is explicitly assumed absent.
         """
         args = {'card_id': card_id, 'spending': asdict(spending), 'assume_uncapped': assume_uncapped}
-        result = calculate_registered_terms(card_id, args['spending'], ctx.context.tool_calls, assume_uncapped)
+        annualized = annualized_spending_categories(args['spending'], ctx.context.tasks)
+        if annualized:
+            result = {
+                'card_id': card_id, 'status': 'annualized_spending_suspected',
+                'categories': annualized, 'error_kind': 'evidence_or_parameter',
+                'retry_action': (
+                    'Spending must be MONTHLY. These values match annual amounts in the task: '
+                    + ', '.join(f"{name}={args['spending'][name]}" for name in annualized)
+                    + '. Divide by 12 or use the monthly figure from the task, then recalculate.'
+                ),
+            }
+        else:
+            result = calculate_registered_terms(card_id, args['spending'], ctx.context.tool_calls, assume_uncapped)
         return record(ctx, ISSUER, 'calculate_from_terms', args, result)
 
     @function_tool
@@ -1024,6 +1167,11 @@ def build_researcher_agents(model, model_settings=None, *, legacy_tools=False):
              "The ONLY workflow is search_official_terms -> register_issuer_terms -> calculate_from_terms. "
              "Do not call a calculator while registration already identifies required missing fields; fix those first. "
              "Do not repeat successful registration fields or already successful calculations. "
+             "calculate_from_terms takes MONTHLY spending; if the task also states an annual total, ignore it. "
+             "annual_fee_usd is the ongoing fee after any first-year waiver; register a first-year fee as "
+             "first_year_annual_fee_usd. Include annual_fee_usd in the first register_issuer_terms call "
+             "whenever a collected claim states it. If no issuer claim states it, the calculator uses the "
+             "dated catalog fee, so do not spend further searches only on the annual fee. "
              "For a quote mismatch use supporting_claim_text in the error; do not search for an unchanged fact again. "
              "Only register rules relevant to NONZERO spending, annual fee, and applicable caps. "
              "After an extraction error, fix the named field using existing claims before searching. "
@@ -1042,6 +1190,7 @@ async def run_researcher(agent, card_ids: list[str], task: str, *, hooks=None, t
     from agents import Runner
 
     context = trace if trace is not None else ResearchTrace()
+    context.tasks.append(task)  # Lets the calculator detect annual totals passed as monthly spending.
     snapshot_ids = [card_id for card_id in card_ids if card_id in _catalog()]
     if agent.name == ISSUER and not snapshot_ids:
         agent = agent.clone(tools=[tool for tool in agent.tools if tool.name != 'lookup_issuer_terms'])

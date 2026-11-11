@@ -4,194 +4,1074 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>CardWise Deep Research</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
         <style>
+            :root {
+                --bg: #f7f6f2;
+                --surface: #ffffff;
+                --ink: #0e1a2b;
+                --text: #1f2a37;
+                --muted: #6b7280;
+                --faint: #9ca3af;
+                --line: #e7e4dc;
+                --navy: #14284b;
+                --accent: #2347a8;
+                --accent-soft: #edf1fb;
+                --gold: #c9a24d;
+                --ok: #0f7a55;
+                --ok-soft: #eaf6f0;
+                --warn: #9a5b06;
+                --warn-soft: #fdf6e7;
+                --warn-line: #f0d9a6;
+                --err: #b42318;
+                --err-soft: #fdf0ee;
+                --shadow: 0 1px 2px rgba(14, 26, 43, 0.04), 0 4px 16px rgba(14, 26, 43, 0.05);
+                --serif: "Fraunces", Georgia, "Times New Roman", serif;
+                --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+                color-scheme: light;
+            }
             * {
                 box-sizing: border-box;
                 margin: 0;
                 padding: 0;
             }
+            html,
             body {
-                font-family: system-ui, sans-serif;
-                padding: 2rem;
-                color: #111;
+                height: 100%;
             }
-            main {
-                max-width: 760px;
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: var(--sans);
+                font-size: 15px;
+                line-height: 1.6;
+                -webkit-font-smoothing: antialiased;
+            }
+            button {
+                font: inherit;
+                cursor: pointer;
+            }
+            button:disabled {
+                cursor: not-allowed;
+                opacity: 0.4;
+            }
+
+            /* ---------- Layout ---------- */
+            .app {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                height: 100dvh;
+                min-width: 0;
+            }
+            .topbar {
+                flex: none;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+                padding: 0.85rem 1.5rem;
+                background: rgba(247, 246, 242, 0.85);
+                backdrop-filter: blur(8px);
+                border-bottom: 1px solid var(--line);
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 0.65rem;
+            }
+            .brand-mark {
+                width: 28px;
+                height: 19px;
+                border-radius: 4px;
+                background: linear-gradient(135deg, #1b3a7a 0%, #14284b 100%);
+                position: relative;
+                flex: none;
+                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+            }
+            .brand-mark::before {
+                content: "";
+                position: absolute;
+                left: 5px;
+                top: 6px;
+                width: 7px;
+                height: 5px;
+                border-radius: 1px;
+                background: var(--gold);
+            }
+            .brand-mark::after {
+                content: "";
+                position: absolute;
+                left: 5px;
+                right: 5px;
+                bottom: 4px;
+                height: 1.5px;
+                background: rgba(255, 255, 255, 0.35);
+            }
+            .brand-name {
+                font-family: var(--serif);
+                font-weight: 600;
+                font-size: 1.15rem;
+                color: var(--ink);
+                letter-spacing: -0.01em;
+            }
+            .top-actions {
+                display: flex;
+                gap: 0.4rem;
+            }
+            .ghost {
+                padding: 0.4rem 0.8rem;
+                border: 1px solid var(--line);
+                background: var(--surface);
+                border-radius: 999px;
+                font-size: 0.8rem;
+                font-weight: 500;
+                color: var(--text);
+                transition: border-color 0.15s, background 0.15s;
+            }
+            .ghost:hover:not(:disabled) {
+                border-color: #cfcac0;
+                background: #fbfaf7;
+            }
+            #thread {
+                flex: 1;
+                overflow-y: auto;
+                padding: 2rem 1.25rem 2.5rem;
+            }
+            .column {
+                max-width: 780px;
                 margin: 0 auto;
                 display: flex;
                 flex-direction: column;
                 gap: 1.5rem;
             }
-            section {
-                border: 1px solid #e0e0e0;
-                padding: 1.25rem 1.5rem;
+            /* Before the first message, the introduction sits in the middle of the page */
+            .app.empty #thread {
+                display: flex;
+                flex-direction: column;
             }
-            h1 {
-                font-size: 1rem;
+            .app.empty #messages {
+                margin: auto;
+                width: 100%;
+            }
+
+            /* ---------- Introduction ---------- */
+            .intro {
+                padding: 0.5rem 0 0.25rem;
+            }
+            .eyebrow {
+                font-size: 0.72rem;
                 font-weight: 600;
-            }
-            h2 {
-                font-size: 0.75rem;
+                letter-spacing: 0.12em;
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
-                color: #999;
-                font-weight: 400;
-                margin-bottom: 0.75rem;
+                color: var(--gold);
+                margin-bottom: 0.6rem;
+            }
+            .intro h1 {
+                font-family: var(--serif);
+                font-weight: 500;
+                font-size: clamp(1.9rem, 4vw, 2.6rem);
+                line-height: 1.12;
+                letter-spacing: -0.02em;
+                color: var(--ink);
+                max-width: 620px;
+            }
+            .intro .lede {
+                margin-top: 0.75rem;
+                color: var(--muted);
+                font-size: 1rem;
+                max-width: 580px;
+            }
+            .facts {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                margin-top: 1.75rem;
+                border-top: 1px solid var(--line);
+            }
+            .fact {
+                padding: 1rem 1.25rem 0 0;
+                font-size: 0.875rem;
+                color: var(--text);
+            }
+            .fact + .fact {
+                padding-left: 1.25rem;
+                border-left: 1px solid var(--line);
+            }
+            .fact h2 {
+                font-size: 0.7rem;
+                font-weight: 600;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--muted);
+                margin-bottom: 0.4rem;
+            }
+            .app:not(.empty) .intro {
+                padding-bottom: 1.25rem;
+                border-bottom: 1px solid var(--line);
+            }
+
+            /* ---------- Messages ---------- */
+            .msg {
+                display: flex;
+                flex-direction: column;
+                gap: 0.4rem;
+            }
+            .msg.user {
+                align-items: flex-end;
+            }
+            .msg.user .bubble {
+                background: var(--navy);
+                color: #f5f7fb;
+                border-radius: 16px 16px 4px 16px;
+                padding: 0.65rem 1rem;
+                max-width: min(85%, 600px);
+                white-space: pre-wrap;
+                word-break: break-word;
+                box-shadow: var(--shadow);
+            }
+            .who {
+                display: flex;
+                align-items: center;
+                gap: 0.45rem;
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: var(--ink);
+            }
+            .who .brand-mark {
+                width: 18px;
+                height: 12px;
+                border-radius: 3px;
+            }
+            .who .brand-mark::before {
+                left: 3px;
+                top: 4px;
+                width: 4px;
+                height: 3px;
+            }
+            .who .brand-mark::after {
+                display: none;
+            }
+            .card {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                padding: 1.1rem 1.25rem;
+                min-width: 0;
+                box-shadow: var(--shadow);
+            }
+            .card.clarify {
+                border-color: var(--warn-line);
+                background: var(--warn-soft);
+            }
+            .card.error {
+                border-color: #f3c9c3;
+                background: var(--err-soft);
+                color: var(--err);
+                font-size: 0.9rem;
+            }
+
+            /* ---------- Research progress ---------- */
+            .progress-head {
                 display: flex;
                 justify-content: space-between;
                 align-items: baseline;
+                gap: 0.75rem;
             }
-            #question,
-            #url {
-                width: 100%;
-                padding: 0.6rem 0;
-                border: none;
-                border-bottom: 1px solid #e0e0e0;
-                font-size: 1rem;
-                outline: none;
-            }
-            #question:focus,
-            #url:focus {
-                border-bottom-color: #000;
-            }
-            #task label {
-                display: block;
-                font-size: 0.75rem;
-                color: #999;
-            }
-            #task label + label {
-                margin-top: 1rem;
-            }
-            #run {
-                margin-top: 1rem;
-            }
-            button {
-                padding: 0.75rem 1.5rem;
-                background: #000;
-                color: #fff;
-                border: none;
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                cursor: pointer;
-            }
-            button:disabled {
-                opacity: 0.3;
-            }
-            #activity {
-                list-style: none;
+            .state {
                 font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--ink);
+            }
+            .state.label {
+                font-size: 0.72rem;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--warn);
+            }
+            .elapsed {
+                font-size: 0.8rem;
+                color: var(--muted);
+                font-variant-numeric: tabular-nums;
+            }
+            /* Lead -> three parallel Researchers -> Writer */
+            .pipeline {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+                margin: 0.85rem 0 0.7rem;
+            }
+            .stage-group {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                padding: 0.3rem;
+                border: 1px dashed var(--line);
+                border-radius: 999px;
+            }
+            .arrow {
+                color: var(--faint);
+                font-size: 0.8rem;
+            }
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.22rem 0.65rem;
+                border-radius: 999px;
+                border: 1px solid var(--line);
+                font-size: 0.76rem;
+                font-weight: 500;
+                color: var(--muted);
+                background: var(--surface);
+                transition: background 0.2s, color 0.2s, border-color 0.2s;
+            }
+            .chip .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #d4d0c6;
+            }
+            .chip.running {
+                color: var(--accent);
+                border-color: #c9d5f3;
+                background: var(--accent-soft);
+            }
+            .chip.running .dot {
+                background: var(--accent);
+                animation: pulse 1.1s ease-in-out infinite;
+            }
+            .chip.done {
+                color: var(--ok);
+                border-color: #bfe3d1;
+                background: var(--ok-soft);
+            }
+            .chip.done .dot {
+                background: var(--ok);
+            }
+            .chip .runs {
+                font-variant-numeric: tabular-nums;
+                opacity: 0.75;
+            }
+            .chip .runs:empty {
+                display: none;
+            }
+            @keyframes pulse {
+                50% {
+                    opacity: 0.25;
+                }
+            }
+            .current {
+                font-size: 0.82rem;
+                color: var(--muted);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            details.steps {
+                margin-top: 0.6rem;
+                font-size: 0.8rem;
+            }
+            details.steps summary {
+                cursor: pointer;
+                color: var(--muted);
+                font-weight: 500;
+                list-style: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+            }
+            details.steps summary::-webkit-details-marker {
+                display: none;
+            }
+            details.steps summary::before {
+                content: "›";
+                display: inline-block;
+                transition: transform 0.15s;
+            }
+            details.steps[open] summary::before {
+                transform: rotate(90deg);
+            }
+            details.steps ol {
+                list-style: none;
+                margin-top: 0.5rem;
+                max-height: 260px;
+                overflow-y: auto;
+                border-left: 2px solid var(--line);
+                padding-left: 0.8rem;
+                color: var(--text);
+            }
+            details.steps li {
+                padding: 0.1rem 0;
+                word-break: break-word;
+            }
+            details.steps .agent {
+                font-weight: 600;
+                color: var(--ink);
+            }
+            .run-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+                margin-top: 1rem;
+            }
+
+            /* ---------- Rendered report ---------- */
+            .report {
+                margin-top: 1rem;
+                padding-top: 1.1rem;
+                border-top: 1px solid var(--line);
+                overflow-wrap: anywhere;
+                color: var(--text);
+                font-size: 0.95rem;
                 line-height: 1.7;
             }
-            #activity .agent {
+            .card.clarify .report {
+                margin-top: 0.5rem;
+                padding-top: 0;
+                border-top: none;
+            }
+            .report > * + * {
+                margin-top: 0.8rem;
+            }
+            .report h1,
+            .report h2,
+            .report h3 {
+                font-family: var(--serif);
+                color: var(--ink);
+                letter-spacing: -0.01em;
+                line-height: 1.3;
+            }
+            .report h1 {
+                font-size: 1.55rem;
                 font-weight: 600;
             }
-            #activity .error {
-                color: #dc2626;
+            .report h2 {
+                font-size: 1.2rem;
+                font-weight: 600;
+                margin-top: 1.6rem;
             }
-            #status {
-                color: #999;
-                text-transform: none;
-                letter-spacing: 0;
+            .report h3 {
+                font-size: 1.02rem;
+                font-weight: 600;
+                margin-top: 1.2rem;
             }
-            #output {
-                font-family: ui-monospace, monospace;
-                font-size: 0.8rem;
-                white-space: pre-wrap;
-                word-break: break-word;
+            .report strong {
+                color: var(--ink);
+                font-weight: 600;
+            }
+            .report ul,
+            .report ol {
+                padding-left: 1.3rem;
+            }
+            .report li + li {
+                margin-top: 0.25rem;
+            }
+            .report li::marker {
+                color: var(--faint);
+            }
+            .report a {
+                color: var(--accent);
+                text-decoration: underline;
+                text-decoration-color: #b9c6ea;
+                text-underline-offset: 2px;
+            }
+            .report a:hover {
+                text-decoration-color: var(--accent);
+            }
+            .report code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.85em;
+                background: #f3f1ec;
+                padding: 0.05rem 0.3rem;
+                border-radius: 4px;
+            }
+            .report blockquote {
+                border-left: 3px solid var(--gold);
+                padding: 0.1rem 0 0.1rem 0.9rem;
+                color: var(--muted);
+            }
+            .report hr {
+                border: none;
+                border-top: 1px solid var(--line);
+            }
+            .table-wrap {
+                overflow-x: auto;
+                border: 1px solid var(--line);
+                border-radius: 10px;
+            }
+            .report table {
+                border-collapse: collapse;
+                font-size: 0.85rem;
                 line-height: 1.5;
+                min-width: 100%;
             }
-            .empty {
-                color: #999;
+            .report th,
+            .report td {
+                padding: 0.55rem 0.75rem;
+                text-align: left;
+                vertical-align: top;
+                border-bottom: 1px solid var(--line);
+            }
+            .report th {
+                background: #f8f7f3;
+                font-weight: 600;
+                color: var(--ink);
+                font-size: 0.8rem;
+            }
+            .report tr:last-child td {
+                border-bottom: none;
+            }
+            .report td + td,
+            .report th + th {
+                border-left: 1px solid var(--line);
+            }
+            .report.plain {
+                white-space: pre-wrap;
+                font-family: ui-monospace, monospace;
+                font-size: 0.85rem;
+            }
+
+            /* ---------- Composer ---------- */
+            .composer {
+                flex: none;
+                padding: 0.75rem 1.25rem 1rem;
+                background: linear-gradient(to bottom, rgba(247, 246, 242, 0), var(--bg) 35%);
+            }
+            .composer form {
+                display: flex;
+                align-items: flex-end;
+                gap: 0.5rem;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 18px;
+                padding: 0.45rem 0.45rem 0.45rem 1rem;
+                box-shadow: var(--shadow);
+                transition: border-color 0.15s, box-shadow 0.15s;
+            }
+            .composer form:focus-within {
+                border-color: #b9c6ea;
+                box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow);
+            }
+            #input {
+                flex: 1;
+                min-width: 0;
+                resize: none;
+                border: none;
+                outline: none;
+                background: transparent;
+                font: inherit;
+                color: var(--text);
+                padding: 0.45rem 0;
+                max-height: 180px;
+            }
+            #input::placeholder {
+                color: var(--faint);
+            }
+            #send {
+                flex: none;
+                width: 38px;
+                height: 38px;
+                border-radius: 12px;
+                border: none;
+                background: var(--navy);
+                color: #fff;
+                display: grid;
+                place-items: center;
+                transition: background 0.15s;
+            }
+            #send:hover:not(:disabled) {
+                background: var(--accent);
+            }
+            #send.stop {
+                background: var(--err);
+            }
+            #send svg {
+                width: 18px;
+                height: 18px;
+            }
+            .hint {
+                margin-top: 0.5rem;
+                text-align: center;
+                font-size: 0.72rem;
+                color: var(--faint);
+            }
+
+            #context-panel .ctx-empty {
+                font-family: var(--sans);
+                font-size: 0.82rem;
+                color: var(--muted);
+                padding-top: 0.5rem;
+            }
+
+            /* Hide the agent context panel on request */
+            html.context-hidden body {
+                margin-right: 0;
+            }
+            html.context-hidden #context-panel {
+                display: none;
+            }
+
+            @media (max-width: 800px) {
+                .facts {
+                    grid-template-columns: 1fr;
+                }
+                .fact + .fact {
+                    padding-left: 0;
+                    border-left: none;
+                    border-top: 1px solid var(--line);
+                    margin-top: 1rem;
+                }
+                .topbar {
+                    padding: 0.7rem 1rem;
+                }
+                #thread {
+                    padding: 1.5rem 1rem 2rem;
+                }
+                .composer {
+                    padding: 0.6rem 1rem 0.8rem;
+                }
             }
         </style>
     </head>
     <body>
-        <main>
-            <h1>CardWise: deep research for evidence-based credit card comparisons</h1>
+        <div class="app empty" id="app">
+            <header class="topbar">
+                <div class="brand">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span class="brand-name">CardWise</span>
+                </div>
+                <div class="top-actions">
+                    <button class="ghost" id="toggle-context" type="button">Hide agent context</button>
+                    <button class="ghost" id="new-chat" type="button">New chat</button>
+                </div>
+            </header>
 
-            <section>
-                <h2>Task</h2>
-                <form id="task">
-                    <label>Question
-                        <input id="question" value="I spend $800 per month on groceries, pay in full, and can accept a $95 annual fee. Compare Amex Blue Cash Preferred and Blue Cash Everyday." placeholder="Describe your spending, repayment habits, fee preference, or cards to compare" autocomplete="off" />
-                    </label>
-                    <button id="run" type="submit">Run</button>
-                </form>
-            </section>
+            <div id="thread">
+                <div class="column" id="messages">
+                    <section class="intro">
+                        <p class="eyebrow">Credit card deep research</p>
+                        <h1>Find the card that fits how you actually spend.</h1>
+                        <p class="lede">
+                            CardWise compares rewards, costs and issuer terms, then writes a report with a source for
+                            every figure. When something can't be verified, the report says so.
+                        </p>
+                        <div class="facts">
+                            <div class="fact">
+                                <h2>What it explores</h2>
+                                <p>
+                                    Rewards, fees, APRs and current terms for 201 U.S. cards, from the 67.CREDIT
+                                    catalog, CFPB survey data and official issuer sites.
+                                </p>
+                            </div>
+                            <div class="fact">
+                                <h2>Who it's for</h2>
+                                <p>
+                                    U.S. consumers choosing between cards who want to see how caps, fees and interest
+                                    affect what they earn, instead of the advertised rate alone.
+                                </p>
+                            </div>
+                            <div class="fact">
+                                <h2>How to use it</h2>
+                                <p>
+                                    Share your monthly spending, whether you pay in full, your annual-fee limit and any
+                                    cards to compare. A run takes a few minutes.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
 
-            <section>
-                <h2>Activity <span id="status"></span></h2>
-                <ol id="activity"><li class="empty">Each agent's steps appear here.</li></ol>
-            </section>
-
-            <section>
-                <h2>Output</h2>
-                <div id="output" class="empty">The report's markdown appears here.</div>
-            </section>
-        </main>
+            <div class="composer">
+                <div class="column">
+                    <form id="composer">
+                        <textarea
+                            id="input"
+                            rows="1"
+                            placeholder="e.g. I spend $600 a month on groceries and $300 on dining, pay in full, and want no annual fee"
+                            autocomplete="off"
+                        ></textarea>
+                        <button id="send" type="submit" aria-label="Send">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 19V5M5 12l7-7 7 7" />
+                            </svg>
+                        </button>
+                    </form>
+                    <p class="hint">Research only, not financial advice. CFPB data is historical, so confirm terms with the issuer.</p>
+                </div>
+            </div>
+        </div>
 
         <script src="/context-panel.js"></script>
         <script>
             const $ = (id) => document.getElementById(id);
-            let source = null;
-            let runId = null;
 
-            function addActivity(agent, text, cls = "") {
-                const li = document.createElement("li");
-                li.className = cls;
-                if (agent) {
-                    const name = document.createElement("span");
-                    name.className = "agent";
-                    name.textContent = agent + " ";
-                    li.appendChild(name);
-                }
-                li.append(text);
-                $("activity").appendChild(li);
+            const SEND_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+            const STOP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>';
+            const DEFAULT_PLACEHOLDER = $("input").placeholder;
+
+            // Agent names as reported by the backend, with short chip labels.
+            const LEAD = "Lead";
+            const RESEARCHERS = [
+                ["Rewards Researcher", "Rewards"],
+                ["Costs Researcher", "Costs"],
+                ["Issuer Verification Researcher", "Issuer"],
+            ];
+            const WRITER = "Writer";
+            const SHORT = Object.fromEntries([[LEAD, "Lead"], ...RESEARCHERS, [WRITER, "Writer"]]);
+
+            // Completed turns, used to give the Lead the conversation so far.
+            let turns = [];
+            let active = null; // the run in progress
+            let panelRunId = null; // the run whose agent context the side panel shows
+
+            function contextHidden() {
+                return document.documentElement.classList.contains("context-hidden");
             }
 
-            function showOutput(markdown) {
-                $("output").className = "";
-                $("output").textContent = markdown;
-            }
-
-            function finish(message) {
-                $("status").textContent = message;
-                $("run").disabled = false;
-                source.close();
-            }
-
-            $("task").addEventListener("submit", (e) => {
-                e.preventDefault();
-                if (source) source.close();
-                const params = new URLSearchParams({ question: $("question").value.trim() });
-
-                $("activity").replaceChildren();
-                $("output").className = "empty";
-                $("output").textContent = "The report's markdown appears here.";
-                $("status").textContent = "running";
-                $("run").disabled = true;
+            // Redraw the side panel from the server. The panel skips updates while it is
+            // hidden, so showing it again must reload the whole run.
+            function refreshContextPanel() {
                 resetContext();
+                if (panelRunId) {
+                    showContext(panelRunId);
+                } else {
+                    $("context-panel").appendChild(
+                        el("p", "ctx-empty", "Each agent's context appears here while CardWise researches."),
+                    );
+                }
+            }
 
-                source = new EventSource("/run?" + params);
-                source.onmessage = (msg) => {
-                    const event = JSON.parse(msg.data);
-                    if (event.type === "start") runId = event.run_id;
-                    else if (event.type === "context") showContext(runId);
-                    else if (event.type === "activity") addActivity(event.agent, event.text);
-                    else if (event.type === "done") {
-                        showOutput(event.markdown);
-                        finish("done");
+            function setContextHidden(hidden) {
+                document.documentElement.classList.toggle("context-hidden", hidden);
+                $("toggle-context").textContent = hidden ? "Show agent context" : "Hide agent context";
+                if (!hidden) refreshContextPanel();
+            }
+
+            // ---------- Helpers ----------
+
+            function el(tag, className, text) {
+                const node = document.createElement(tag);
+                if (className) node.className = className;
+                if (text !== undefined) node.textContent = text;
+                return node;
+            }
+
+            function scrollToEnd(force = false) {
+                const thread = $("thread");
+                const nearBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 160;
+                if (force || nearBottom) thread.scrollTop = thread.scrollHeight;
+            }
+
+            function formatElapsed(ms) {
+                const s = Math.floor(ms / 1000);
+                return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+            }
+
+            function brandMark() {
+                const mark = el("span", "brand-mark");
+                mark.setAttribute("aria-hidden", "true");
+                return mark;
+            }
+
+            function renderMarkdown(target, markdown) {
+                if (window.marked && window.DOMPurify) {
+                    // A single "~" means "about" in a report ("~$26"), but GFM reads a pair of
+                    // them as strikethrough. Escape single tildes; "~~text~~" still works.
+                    const text = markdown.replace(/(^|[^~\\])~(?!~)/g, "$1\\~");
+                    target.innerHTML = DOMPurify.sanitize(marked.parse(text));
+                    for (const link of target.querySelectorAll("a[href]")) {
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                    }
+                    for (const table of target.querySelectorAll("table")) {
+                        const wrap = el("div", "table-wrap");
+                        table.replaceWith(wrap);
+                        wrap.appendChild(table);
+                    }
+                } else {
+                    // The CDN is unavailable: show the Markdown source rather than nothing.
+                    target.classList.add("plain");
+                    target.textContent = markdown;
+                }
+            }
+
+            // The backend answers one question at a time, so earlier turns are folded into
+            // the question. This lets an answer to a clarifying question reach the Lead.
+            function buildQuestion(latest) {
+                if (!turns.length) return latest;
+                const lines = ["Earlier in this conversation:"];
+                for (const turn of turns) {
+                    if (turn.role === "user") lines.push("User: " + turn.text);
+                    else if (turn.kind === "clarification") lines.push("CardWise asked: " + turn.text.slice(0, 1500));
+                    else lines.push("CardWise delivered a research report for the request above.");
+                }
+                lines.push("", "Latest user message: " + latest);
+                return lines.join("\n");
+            }
+
+            // ---------- Messages ----------
+
+            function addUserMessage(text) {
+                $("app").classList.remove("empty");
+                const msg = el("div", "msg user");
+                msg.appendChild(el("div", "bubble", text));
+                $("messages").appendChild(msg);
+                scrollToEnd(true);
+            }
+
+            function addChip(container, label) {
+                const chip = el("span", "chip");
+                chip.append(el("span", "dot"), el("span", "", label), el("span", "runs"));
+                container.appendChild(chip);
+                return { node: chip, runs: 0 };
+            }
+
+            function addRunMessage() {
+                const msg = el("div", "msg assistant");
+                const who = el("div", "who");
+                who.append(brandMark(), "CardWise");
+                const card = el("div", "card");
+                msg.append(who, card);
+
+                const head = el("div", "progress-head");
+                const state = el("span", "state", "Starting research…");
+                const elapsed = el("span", "elapsed", "0:00");
+                head.append(state, elapsed);
+
+                const pipeline = el("div", "pipeline");
+                const chips = {};
+                chips[LEAD] = addChip(pipeline, "Lead");
+                pipeline.appendChild(el("span", "arrow", "→"));
+                const group = el("div", "stage-group");
+                group.title = "Researchers run in parallel";
+                for (const [name, short] of RESEARCHERS) chips[name] = addChip(group, short);
+                pipeline.appendChild(group);
+                pipeline.appendChild(el("span", "arrow", "→"));
+                chips[WRITER] = addChip(pipeline, "Writer");
+
+                const current = el("div", "current", "Waiting for the Lead…");
+                const steps = el("details", "steps");
+                const summary = el("summary", "", "Research steps (0)");
+                const list = el("ol");
+                steps.append(summary, list);
+
+                const report = el("div", "report");
+                report.hidden = true;
+                const actions = el("div", "run-actions");
+                actions.hidden = true;
+
+                card.append(head, pipeline, current, steps, report, actions);
+                $("messages").appendChild(msg);
+                scrollToEnd(true);
+                return { msg, card, state, elapsed, pipeline, chips, current, steps, summary, list, report, actions, count: 0 };
+            }
+
+            function recordActivity(view, agent, text) {
+                view.count += 1;
+                view.summary.textContent = "Research steps (" + view.count + ")";
+                const li = el("li");
+                if (agent) li.appendChild(el("span", "agent", (SHORT[agent] || agent) + " "));
+                li.append(text);
+                view.list.appendChild(li);
+                view.list.scrollTop = view.list.scrollHeight;
+                view.current.textContent = (agent ? (SHORT[agent] || agent) + " · " : "") + text;
+
+                if (!agent) return;
+                if (!view.chips[agent]) view.chips[agent] = addChip(view.pipeline, agent);
+                const chip = view.chips[agent];
+                if (text === "started") {
+                    chip.runs += 1;
+                    chip.node.className = "chip running";
+                    chip.node.querySelector(".runs").textContent = chip.runs > 1 ? "×" + chip.runs : "";
+                } else if (text.startsWith("finished")) {
+                    chip.node.className = "chip done";
+                }
+                if (agent !== LEAD) view.researched = true;
+            }
+
+            function addButton(container, label, onClick, className = "ghost") {
+                const button = el("button", className, label);
+                button.type = "button";
+                button.addEventListener("click", onClick);
+                container.appendChild(button);
+                return button;
+            }
+
+            // ---------- Running a question ----------
+
+            function setRunning(running) {
+                $("send").innerHTML = running ? STOP_ICON : SEND_ICON;
+                $("send").setAttribute("aria-label", running ? "Stop" : "Send");
+                $("send").classList.toggle("stop", running);
+                $("input").disabled = running;
+                $("new-chat").disabled = running;
+                for (const button of document.querySelectorAll(".retry")) button.disabled = running;
+            }
+
+            function ask(text) {
+                text = text.trim();
+                if (!text || active) return;
+                addUserMessage(text);
+                start(text, buildQuestion(text));
+            }
+
+            function start(text, question) {
+                if (active) return;
+                const view = addRunMessage();
+                const run = { text, question, view, source: null, runId: null, startedAt: Date.now() };
+                active = run;
+                setRunning(true);
+                panelRunId = null;
+                resetContext();
+                run.timer = setInterval(() => (view.elapsed.textContent = formatElapsed(Date.now() - run.startedAt)), 1000);
+
+                const source = new EventSource("/run?" + new URLSearchParams({ question }));
+                run.source = source;
+                source.onmessage = (message) => {
+                    const event = JSON.parse(message.data);
+                    if (event.type === "start") {
+                        run.runId = event.run_id;
+                        panelRunId = run.runId;
+                        view.state.textContent = "Researching…";
+                    } else if (event.type === "context") {
+                        if (run.runId === panelRunId && !contextHidden()) showContext(run.runId);
+                    } else if (event.type === "activity") {
+                        recordActivity(view, event.agent, event.text);
+                        scrollToEnd();
+                    } else if (event.type === "done") {
+                        complete(run, event.markdown);
                     } else if (event.type === "error") {
-                        addActivity("", event.message, "error");
-                        finish("failed");
+                        fail(run, event.message);
                     }
                 };
-                source.onerror = () => {
-                    addActivity("", "Lost the connection to the server.", "error");
-                    finish("failed");
-                };
+                // Close immediately: EventSource would otherwise reconnect and start a new run.
+                source.onerror = () => fail(run, "Lost the connection to the server.");
+            }
+
+            function finish(run) {
+                run.source.close();
+                clearInterval(run.timer);
+                run.view.elapsed.textContent = formatElapsed(Date.now() - run.startedAt);
+                for (const chip of Object.values(run.view.chips)) {
+                    if (chip.node.classList.contains("running")) chip.node.className = "chip";
+                }
+                active = null;
+                setRunning(false);
+                $("input").focus();
+            }
+
+            function complete(run, markdown) {
+                if (active !== run) return;
+                finish(run);
+                const view = run.view;
+                // No Researcher ran, so the Lead is asking for more information.
+                const clarification = !view.researched;
+                turns.push({ role: "user", text: run.text });
+                turns.push({ role: "assistant", kind: clarification ? "clarification" : "report", text: markdown });
+
+                view.report.hidden = false;
+                renderMarkdown(view.report, markdown);
+                view.current.hidden = true;
+                if (clarification) {
+                    view.card.classList.add("clarify");
+                    view.pipeline.hidden = true;
+                    view.steps.hidden = true;
+                    view.elapsed.hidden = true;
+                    view.state.className = "state label";
+                    view.state.textContent = "A few details first";
+                    $("input").placeholder = "Answer the question above…";
+                } else {
+                    view.state.textContent = "Research complete";
+                    $("input").placeholder = "Ask a follow-up, or start a new chat for a different question";
+                }
+
+                view.actions.hidden = false;
+                addButton(view.actions, "Copy Markdown", async (event) => {
+                    const button = event.currentTarget;
+                    try {
+                        await navigator.clipboard.writeText(markdown);
+                        button.textContent = "Copied";
+                    } catch {
+                        button.textContent = "Copy failed";
+                    }
+                    setTimeout(() => (button.textContent = "Copy Markdown"), 1500);
+                });
+                if (run.runId && !clarification) {
+                    addButton(view.actions, "Show agent context", () => {
+                        panelRunId = run.runId;
+                        setContextHidden(false);
+                    });
+                }
+                scrollToEnd();
+            }
+
+            function fail(run, message) {
+                if (active !== run) return;
+                finish(run);
+                run.view.state.textContent = "Research stopped";
+                const error = el("div", "card error");
+                error.appendChild(el("div", "", message));
+                const actions = el("div", "run-actions");
+                addButton(actions, "Retry", () => start(run.text, run.question), "ghost retry");
+                error.appendChild(actions);
+                run.view.msg.appendChild(error);
+                scrollToEnd(true);
+            }
+
+            function stop() {
+                if (active) fail(active, "Stopped. The research was cancelled.");
+            }
+
+            // ---------- Wiring ----------
+
+            $("composer").addEventListener("submit", (event) => {
+                event.preventDefault();
+                if (active) return stop();
+                const text = $("input").value;
+                $("input").value = "";
+                $("input").style.height = "";
+                ask(text);
             });
+
+            $("input").addEventListener("keydown", (event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+                    event.preventDefault();
+                    $("composer").requestSubmit();
+                }
+            });
+
+            $("input").addEventListener("input", () => {
+                const input = $("input");
+                input.style.height = "auto";
+                input.style.height = Math.min(input.scrollHeight, 180) + "px";
+            });
+
+            $("new-chat").addEventListener("click", () => {
+                turns = [];
+                for (const node of [...$("messages").children]) {
+                    if (!node.classList.contains("intro")) node.remove();
+                }
+                $("app").classList.add("empty");
+                panelRunId = null;
+                refreshContextPanel();
+                $("input").placeholder = DEFAULT_PLACEHOLDER;
+                $("thread").scrollTop = 0;
+                $("input").focus();
+            });
+
+            $("toggle-context").addEventListener("click", () => setContextHidden(!contextHidden()));
+
+            refreshContextPanel();
+            $("input").focus();
         </script>
     </body>
 </html>
